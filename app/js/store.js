@@ -18,6 +18,7 @@
   const PROBE = 'tdw.__probe';
   const MARKS = 'tdw.notionMarks';
   const ACCOUNT = 'tdw.account';
+  const STASH = 'tdw.accountStash';  // an old (before 4.0) account's fields, until the next sign-in
   const MARK_MS = 60000;
   // Written only by sync. The open draft keeps its own text while it has unsaved typing,
   // but it still takes these, so a Notion link learned in another tab is never lost.
@@ -306,8 +307,9 @@
   // The signed-in account (see account.js), or null.
   function getAccount() {
     const a = readJSON(ACCOUNT, null);
-    const ok = a && typeof a === 'object' && typeof a.email === 'string' && typeof a.userId === 'string' &&
-      typeof a.key === 'string' && a.fields && typeof a.fields === 'object' && Number.isInteger(a.rev);
+    const ok = a && typeof a === 'object' && a.v === 2 && typeof a.email === 'string' && typeof a.dk === 'string' &&
+      typeof a.vaultId === 'string' && typeof a.secret === 'string' && typeof a.key === 'string' &&
+      a.fields && typeof a.fields === 'object' && Number.isInteger(a.rev);
     return ok ? a : null;
   }
 
@@ -320,7 +322,7 @@
      For moving to another browser or web address, where localStorage starts empty. It leaves
      out the account's own record (it holds the key the account is encrypted with; each address
      signs in for itself) and what only matters for a minute. */
-  const BACKUP_SKIP = new Set([ACCOUNT, PROBE, MARKS, 'tdw.syncWant', 'tdw.notionBase']);
+  const BACKUP_SKIP = new Set([ACCOUNT, STASH, PROBE, MARKS, 'tdw.syncWant', 'tdw.notionBase']);
 
   function exportAll() {
     check();
@@ -375,6 +377,9 @@
     saveSettings(s) { set('tdw.settings', JSON.stringify(s)); },
     getAccount,
     setAccount(a) { if (a) set(ACCOUNT, JSON.stringify(a)); else remove(ACCOUNT); },
+    getAccountRaw() { const a = readJSON(ACCOUNT, null); return a && typeof a === 'object' ? a : null; },
+    getAccountStash() { const a = readJSON(STASH, null); return a && typeof a === 'object' ? a : null; },
+    setAccountStash(a) { if (a) set(STASH, JSON.stringify(a)); else remove(STASH); },
     getAccountEmail() { return get('tdw.accountEmail') || ''; },
     setAccountEmail(e) { set('tdw.accountEmail', e); },
     getKey() { return get('tdw.geminiKey') || ''; },

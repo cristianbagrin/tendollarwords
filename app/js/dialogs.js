@@ -218,7 +218,8 @@
   function accountSection() {
     const sec = el('div', { id: 'set-account' });
     const status = el('p', { class: 'set-status', 'aria-live': 'polite' });
-    let mode = 'in', open = null, busy = false;
+    // mode: 'in' | 'up' | 'forgot'; step: what signing in asks for next (see Account.signIn).
+    let mode = 'in', step = null, open = null, busy = false, lostOpen = false;
     const say = (text, error) => { status.textContent = text || ''; status.classList.toggle('is-error', !!error); };
     const input = (type, id, autocomplete, extra) => el('input', Object.assign({ type, id, name: id, autocomplete, spellcheck: 'false', autocapitalize: 'off' }, extra || {}));
     const field = (label, inp, hint) => el('div', { class: 'set-field' }, el('label', { for: inp.id, text: label }), inp, hint ? el('p', { class: 'hint', text: hint }) : null);
@@ -234,12 +235,25 @@
       if (st.status === 'error') return st.message;
       return st.at ? 'Last synced ' + relTime(st.at) + '.' : '';
     }
+    const site = () => Account.accountSite() || 'https://account.cristianbagrin.com';
+    const siteLink = (text) => el('a', { href: site(), target: '_blank', rel: 'noopener', text });
+
+    // A sign-in step finished: done, or something more to ask.
+    function after(res, up) {
+      if (res && res.need) { step = res.need; lostOpen = false; render(); const f = sec.querySelector('input:not([hidden])'); if (f) f.focus(); return; }
+      step = null; mode = 'in';
+      render(); refreshSettings(); TDW.App.syncChanged();
+      toast(up ? 'Account ready' : 'Signed in');
+      if (Account.state().recoveryKey) showRecoveryKey();
+    }
+
     function signedOutView() {
+      if (step) return stepView();
       const email = input('email', 'acct-email', 'username', { inputmode: 'email', value: Account.lastEmail() });
-      if (mode === 'reset') return resetView(email);
+      if (mode === 'forgot') return forgotView(email);
       const pw = input('password', 'acct-password', mode === 'up' ? 'new-password' : 'current-password', { minlength: '8' });
       const go = el('button', { type: 'submit', class: 'btn', text: mode === 'up' ? 'Create account' : 'Sign in' });
-      const forgot = mode === 'in' ? el('button', { type: 'button', class: 'link', text: 'Forgot your password?', onclick: () => { mode = 'reset'; say(''); render(); } }) : null;
+      const forgot = mode === 'in' ? el('button', { type: 'button', class: 'link', text: 'Forgot your password?', onclick: () => { mode = 'forgot'; say(''); render(); } }) : null;
       const form = el('form', { class: 'acct-form' }, field('Email', email),
         field('Password', pw, mode === 'up' ? 'At least 8 characters.' : ''), el('div', { class: 'set-actions' }, go, forgot));
       form.noValidate = true;
@@ -249,80 +263,147 @@
         if (!pw.value) { pw.focus(); return; }
         const up = mode === 'up';
         run(go, up ? 'Creating your account…' : 'Signing in…', async () => {
-          if (up) await Account.signUp(email.value, pw.value); else await Account.signIn(email.value, pw.value);
-          render(); refreshSettings(); TDW.App.syncChanged();
-          toast(up ? 'Account created' : 'Signed in');
+          after(up ? await Account.signUp(email.value, pw.value) : await Account.signIn(email.value, pw.value), up);
         });
       });
       const pick = segmented({ label: 'Account', value: mode, options: [{ value: 'in', label: 'Sign in' }, { value: 'up', label: 'Create account' }],
         onChange: (v) => { mode = v; say(''); render(); document.getElementById('acct-email').focus(); } });
       return [
-        el('p', { class: 'set-note', style: 'margin-top:0', text: 'Sign in to have your Notion connection, Gemini key, settings and dictionary on every device you write on.' }),
+        el('p', { class: 'set-note', style: 'margin-top:0' }, 'Sign in with your ', siteLink('cristianbagrin.com account'),
+          ' to have your Notion connection, Gemini key, settings and dictionary on every device you write on. They’re encrypted on this device first.'),
         device.phone ? el('p', { class: 'set-note', style: 'margin-top:0', text: 'Easiest: connect Notion and Gemini on your computer, then sign in here.' }) : null,
         el('div', { style: 'margin-bottom:14px' }, pick), form];
     }
-    // Your password is the key to what the account keeps, so nobody can read it back to you. A
-    // reset starts the account again under a new password, filled from this browser.
-    function resetView(email) {
-      const code = input('password', 'acct-code', 'off');
-      const pw = input('password', 'acct-password', 'new-password', { minlength: '8' });
-      const go = el('button', { type: 'submit', class: 'btn', text: 'Reset and sign in' });
+
+    function forgotView(email) {
+      const go = el('button', { type: 'submit', class: 'btn', text: 'Email me a link' });
       const form = el('form', { class: 'acct-form' }, field('Email', email),
-        field('Reset code', code, 'The TDW_RESET_CODE set for this site in Cloudflare.'),
-        field('New password', pw, 'At least 8 characters.'),
         el('div', { class: 'set-actions' }, go, el('button', { type: 'button', class: 'btn-quiet', text: 'Back', onclick: () => { mode = 'in'; say(''); render(); } })));
       form.noValidate = true;
       form.addEventListener('submit', (e) => {
         e.preventDefault();
-        for (const f of [email, code, pw]) if (!f.value.trim()) { f.focus(); return; }
-        run(go, 'Resetting…', async () => {
-          await Account.resetPassword(email.value, code.value, pw.value);
-          mode = 'in';
-          render(); refreshSettings(); TDW.App.syncChanged();
-          toast('Password reset. You’re signed in.');
+        if (!email.value.trim()) { email.focus(); return; }
+        run(go, 'Sending…', async () => {
+          await Account.forgot(email.value);
+          mode = 'in'; render();
+          say('If that email has an account, a link is on its way. Set a new password there, then sign in here with it and your recovery key.');
         });
       });
-      return [
-        el('p', { class: 'set-note', style: 'margin-top:0', text: 'A forgotten password can’t be recovered: it is the key your account is locked with. Resetting starts the account again under a new password, and this browser’s Notion connection, Gemini key, settings and dictionary go into it. Drafts are untouched.' }),
-        form];
+      return [el('p', { class: 'set-note', style: 'margin-top:0', text: 'We’ll email you a link to set a new password. Your synced data stays locked until you sign in with the new password and your recovery key, or on a device that’s still signed in.' }), form];
+    }
+
+    // What signing in asks for next.
+    function stepView() {
+      const back = el('button', { type: 'button', class: 'btn-quiet', text: 'Cancel', onclick: () => { Account.cancel(); step = null; say(''); render(); } });
+      const form = (note, fld, go, extra) => {
+        const f = el('form', { class: 'acct-form' }, fld, el('div', { class: 'set-actions' }, go, extra || back));
+        f.noValidate = true;
+        return [el('p', { class: 'set-note', style: 'margin-top:0', text: note }), f];
+      };
+      if (step === 'recovery') {
+        const key = input('text', 'acct-recovery', 'off', { class: 'recovery-input', placeholder: 'XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XX', autocorrect: 'off' });
+        const go = el('button', { type: 'submit', class: 'btn', text: 'Unlock' });
+        const lost = el('button', { type: 'button', class: 'link', text: 'Lost it?', 'aria-expanded': String(lostOpen), onclick: () => { lostOpen = !lostOpen; render(); } });
+        const nodes = form('Your password changed. Enter your recovery key to unlock your synced data.', field('Recovery key', key), go, el('span', { class: 'set-actions' }, back, lost));
+        nodes[1].addEventListener('submit', (e) => {
+          e.preventDefault();
+          if (!key.value.trim()) { key.focus(); return; }
+          run(go, 'Unlocking…', async () => after(await Account.answer({ recoveryKey: key.value })));
+        });
+        if (lostOpen) {
+          const fresh = el('button', { type: 'button', class: 'btn-quiet btn-sm danger', text: 'Start fresh' });
+          fresh.addEventListener('click', () => run(fresh, 'Making new keys…', async () => after(await Account.answer({ startFresh: true }))));
+          nodes.push(el('div', { class: 'acct-sub', style: 'margin-top:14px' },
+            el('p', { style: 'margin:0 0 10px', text: 'Without the recovery key or a signed-in device, synced data can’t be opened. Your data on this device stays.' }),
+            el('p', { class: 'hint', style: 'margin:0 0 10px', text: 'Starting fresh makes new keys and syncs this device from here on. What was synced before stays locked.' }), fresh));
+        }
+        return nodes;
+      }
+      if (step === 'account_password') {
+        const pw = input('password', 'acct-shared', 'current-password');
+        const go = el('button', { type: 'submit', class: 'btn', text: 'Continue' });
+        const nodes = form('Your Ten Dollar Words account is moving to cristianbagrin.com, where this email already has an account with another password. Enter that password to finish.', field('cristianbagrin.com password', pw), go);
+        nodes[1].addEventListener('submit', (e) => {
+          e.preventDefault();
+          if (!pw.value) { pw.focus(); return; }
+          run(go, 'Signing in…', async () => after(await Account.answer({ accountPassword: pw.value })));
+        });
+        return nodes;
+      }
+      // 'old_password'
+      const pw = input('password', 'acct-old', 'current-password');
+      const go = el('button', { type: 'submit', class: 'btn', text: 'Bring it over' });
+      const skip = el('button', { type: 'button', class: 'btn-quiet', text: 'Skip for now' });
+      skip.addEventListener('click', () => run(skip, 'Finishing…', async () => after(await Account.answer({ skipOld: true }))));
+      const nodes = form('This email also has an older Ten Dollar Words account, with a different password. Enter that password to bring its settings over.', field('Old Ten Dollar Words password', pw), go, skip);
+      nodes[1].addEventListener('submit', (e) => {
+        e.preventDefault();
+        if (!pw.value) { pw.focus(); return; }
+        run(go, 'Bringing it over…', async () => after(await Account.answer({ oldPassword: pw.value })));
+      });
+      return nodes;
     }
 
     function signedInView() {
       const st = Account.state();
       const out = el('button', { type: 'button', class: 'btn-outline btn-sm', text: 'Sign out' });
       out.addEventListener('click', () => run(out, 'Signing out…', async () => { await Account.signOut(); render(); refreshSettings(); TDW.App.syncChanged(); toast('Signed out'); }));
+      const toggleOpen = (k) => () => { open = open === k ? null : k; say(''); render(); };
       const nodes = [
-        ...group(null, row('Signed in as ' + st.email, out, 'Notion, Gemini, settings, dictionary and draft formats are saved to your account, encrypted with your password. ' + syncLine())),
-        el('div', { class: 'set-actions' },
-          el('button', { type: 'button', class: 'btn-quiet btn-sm', text: 'Change password', 'aria-expanded': String(open === 'password'), onclick: () => { open = open === 'password' ? null : 'password'; say(''); render(); } }),
-          el('button', { type: 'button', class: 'btn-quiet btn-sm danger', text: 'Delete account', 'aria-expanded': String(open === 'delete'), onclick: () => { open = open === 'delete' ? null : 'delete'; say(''); render(); } })),
-        el('p', { class: 'set-note', style: 'margin-top:8px', text: 'Signing out takes your keys and Notion connection out of this browser. Your drafts stay.' })
+        ...group(null, row('Signed in as ' + st.email, out, 'Notion, Gemini, settings, dictionary and draft formats sync to your account, encrypted on this device first. ' + syncLine()))
       ];
-      const who = input('email', 'acct-user', 'username', { value: st.email, hidden: true, tabindex: '-1', 'aria-hidden': 'true' });
-      if (open === 'password') {
+      if (st.reauth) {
+        const pw = input('password', 'acct-reauth', 'current-password');
+        const go = el('button', { type: 'submit', class: 'btn btn-sm', text: 'Sign in' });
+        const form = el('form', { class: 'acct-form acct-sub', style: 'margin-bottom:14px' },
+          el('input', { type: 'email', name: 'acct-user', autocomplete: 'username', value: st.email, hidden: true, tabindex: '-1', 'aria-hidden': 'true' }),
+          el('p', { style: 'margin:0', text: 'Your password changed. This browser keeps syncing; sign in once to keep its keys up to date.' }),
+          field('Password', pw), el('div', { class: 'set-actions' }, go));
+        form.noValidate = true;
+        form.addEventListener('submit', (e) => {
+          e.preventDefault();
+          if (!pw.value) { pw.focus(); return; }
+          run(go, 'Signing in…', async () => after(await Account.reauth(pw.value)));
+        });
+        nodes.push(form);
+      }
+      nodes.push(el('div', { class: 'set-actions' },
+        el('button', { type: 'button', class: 'btn-quiet btn-sm', text: 'Recovery key', 'aria-expanded': String(open === 'recovery'), disabled: st.reauth, onclick: toggleOpen('recovery') }),
+        el('button', { type: 'button', class: 'btn-quiet btn-sm', text: 'Change password', 'aria-expanded': String(open === 'password'), disabled: st.reauth, onclick: toggleOpen('password') }),
+        el('a', { class: 'btn-quiet btn-sm', href: site(), target: '_blank', rel: 'noopener' }, 'Your account', icon('external')),
+        el('button', { type: 'button', class: 'btn-quiet btn-sm danger', text: 'Remove synced data', 'aria-expanded': String(open === 'remove'), disabled: st.reauth, onclick: toggleOpen('remove') })),
+      el('p', { class: 'set-note', style: 'margin-top:8px', text: 'Signing out takes your keys and Notion connection out of this browser. Your drafts stay.' }));
+      const who = el('input', { type: 'email', name: 'acct-user', autocomplete: 'username', value: st.email, hidden: true, tabindex: '-1', 'aria-hidden': 'true' });
+      const cancel = el('button', { type: 'button', class: 'btn-quiet', text: 'Cancel', onclick: () => { open = null; say(''); render(); } });
+      if (open === 'recovery') {
+        const go = el('button', { type: 'button', class: 'btn btn-sm', text: 'Make a new one' });
+        go.addEventListener('click', () => run(go, 'Making a new key…', async () => { await Account.newRecoveryKey(); open = null; render(); showRecoveryKey(); }));
+        nodes.push(el('div', { class: 'acct-sub' },
+          el('p', { style: 'margin:0 0 10px', text: 'Your recovery key unlocks your synced data if you forget your password. Lost it, or not sure where it is? Make a new one: the old one stops working.' }),
+          el('div', { class: 'set-actions' }, go, cancel)));
+      } else if (open === 'password') {
         const cur = input('password', 'acct-current', 'current-password');
         const next = input('password', 'acct-new', 'new-password', { minlength: '8' });
         const go = el('button', { type: 'submit', class: 'btn', text: 'Change password' });
-        const form = el('form', { class: 'acct-form acct-sub' }, who, field('Current password', cur), field('New password', next, 'At least 8 characters. Your other devices will ask you to sign in again.'),
-          el('div', { class: 'set-actions' }, go, el('button', { type: 'button', class: 'btn-quiet', text: 'Cancel', onclick: () => { open = null; say(''); render(); } })));
+        const form = el('form', { class: 'acct-form acct-sub' }, who, field('Current password', cur),
+          field('New password', next, 'At least 8 characters. It changes for your whole cristianbagrin.com account, and your other devices sign in again.'),
+          el('div', { class: 'set-actions' }, go, cancel));
         form.noValidate = true;
         form.addEventListener('submit', (e) => { e.preventDefault(); run(go, 'Changing your password…', async () => { await Account.changePassword(cur.value, next.value); open = null; render(); toast('Password changed'); }); });
         nodes.push(form);
-      } else if (open === 'delete') {
-        const pw = input('password', 'acct-delete', 'current-password');
-        const go = el('button', { type: 'submit', class: 'btn btn-danger', text: 'Delete my account' });
-        const form = el('form', { class: 'acct-form acct-sub' }, who,
-          el('p', { text: 'This deletes your account and everything it keeps. This browser keeps its keys and drafts, and Notion keeps your pages.' }), field('Password', pw),
-          el('div', { class: 'set-actions' }, go, el('button', { type: 'button', class: 'btn-quiet', text: 'Cancel', onclick: () => { open = null; say(''); render(); } })));
-        form.noValidate = true;
-        form.addEventListener('submit', (e) => { e.preventDefault(); run(go, 'Deleting your account…', async () => { await Account.deleteAccount(pw.value); open = null; render(); toast('Account deleted'); }); });
-        nodes.push(form);
+      } else if (open === 'remove') {
+        const go = el('button', { type: 'button', class: 'btn btn-danger', text: 'Remove synced data' });
+        go.addEventListener('click', () => run(go, 'Removing…', async () => { await Account.removeSyncedData(); open = null; render(); refreshSettings(); TDW.App.syncChanged(); toast('Synced data removed'); }));
+        nodes.push(el('div', { class: 'acct-sub' },
+          el('p', { style: 'margin:0 0 10px', text: 'This removes what Ten Dollar Words keeps in your account and signs every browser out of it. Each browser keeps its settings and drafts, and Notion keeps your pages. Your cristianbagrin.com account stays.' }),
+          el('div', { class: 'set-actions' }, go, cancel)));
       }
       return nodes;
     }
     let shown = null;
     function render() {
       shown = Account.state().signedIn;
+      if (shown) step = null;
       sec.replaceChildren(...(shown ? signedInView() : signedOutView()).filter(Boolean), status);
     }
     render();
@@ -331,6 +412,62 @@
       if (Account.state().signedIn !== shown) render();
     };
     return sec;
+  }
+
+  /* ---------- The recovery key ----------
+     Shown once when an account's keys are made (and after "Make a new one"), and again on the
+     next visit until you say you saved it. It can't be closed before that. */
+  function showRecoveryKey() {
+    const dlg = $('recovery-dialog');
+    const st = Account.state();
+    const key = st.recoveryKey;
+    if (!dlg || !key) return;
+    if (settingsDlg && settingsDlg.open) dismiss(settingsDlg);
+    const copy = el('button', { type: 'button', class: 'btn-outline' }, icon('copy'), el('span', { text: 'Copy' }));
+    copy.addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(key); copy.lastChild.textContent = 'Copied'; setTimeout(() => { copy.lastChild.textContent = 'Copy'; }, 1600); } catch (_) { toast('Select the key and copy it'); }
+    });
+    const download = el('button', { type: 'button', class: 'btn-outline' }, icon('download'), el('span', { text: 'Download' }));
+    download.addEventListener('click', () => {
+      const text = ['Ten Dollar Words recovery key', '', key, '', 'Account: ' + st.email, 'Made: ' + new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), '',
+        'If you forget your password, this key is the only way back into your synced data. Keep it somewhere safe, like a password manager.',
+        'https://tendollarwords.cristianbagrin.com', ''].join('\n');
+      const a = el('a', { href: URL.createObjectURL(new Blob([text], { type: 'text/plain' })), download: 'ten-dollar-words-recovery-key.txt' });
+      document.body.append(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    });
+    const go = el('button', { type: 'button', class: 'btn', text: 'Continue', disabled: true });
+    const check = el('input', { type: 'checkbox', id: 'recovery-saved', onchange: () => { go.disabled = !check.checked; } });
+    go.addEventListener('click', () => { Account.savedRecoveryKey(); dismiss(dlg); toast('Recovery key saved'); });
+    dlg.replaceChildren(
+      el('div', { class: 'recovery-card' },
+        el('div', { class: 'recovery-seal', 'aria-hidden': 'true' }, keyGlyph()),
+        el('h2', { id: 'recovery-title', text: 'Save your recovery key' }),
+        el('p', { class: 'recovery-lede', text: 'If you forget your password, this key is the only way back into your synced data. Keep it somewhere safe, like a password manager.' }),
+        el('div', { class: 'recovery-slip' }, el('code', { class: 'recovery-key', 'aria-label': 'Recovery key ' + key.split('').join(' ') },
+          ...key.split('-').map((g) => el('span', { text: g })))),
+        el('div', { class: 'recovery-actions' }, copy, download),
+        el('p', { class: 'recovery-fine', text: 'Lose your password, this key and every signed-in device, and the synced data can’t be opened by anyone, including us. What’s on each device stays.' }),
+        el('div', { class: 'recovery-foot' },
+          el('label', { class: 'recovery-check', for: 'recovery-saved' }, check, el('span', { text: 'I saved it' })), go)));
+    // Not dismissable until saved: no Escape, no click outside.
+    if (!dlg._guarded) {
+      dlg._guarded = true;
+      dlg._wired = true;
+      dlg._onDismiss = () => TDW.Editor.focus();
+      dlg.addEventListener('cancel', (e) => e.preventDefault());
+    }
+    dlg.classList.add('no-sheet');
+    present(dlg);
+    copy.focus({ preventScroll: true });
+  }
+
+  function keyGlyph() {
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('width', '22'); svg.setAttribute('height', '22');
+    svg.innerHTML = '<circle cx="8" cy="12" r="4.25" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12.25 12H21M18 12v3M15.5 12v2.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>';
+    return svg;
   }
 
   function sectionNodes(k) {
@@ -389,7 +526,7 @@
       TDW.Keys.on('settings', () => openSettings());
       TDW.Keys.on('drafts', () => TDW.Drafts.toggle());
     },
-    openDrafts, openSettings, refreshSettings, renderDraftList, newDraft,
+    openDrafts, openSettings, refreshSettings, renderDraftList, newDraft, showRecoveryKey,
     isDraftsOpen() { return TDW.Drafts.isOpen(); }
   };
 })();
