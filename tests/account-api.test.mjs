@@ -13,7 +13,7 @@ const CT = crypto.randomBytes(48).toString('base64');
 function setup(kv) {
   kv = kv || memoryKV();
   const clock = { t: Date.UTC(2026, 8, 1) };
-  const handle = createHandler({ kv, now: () => clock.t });
+  const handle = createHandler({ kv, now: () => clock.t, legacySignup: true });
   async function call(action, body, cookie, headers) {
     const req = new Request('https://x.test/api/account/' + action, {
       method: 'POST',
@@ -217,7 +217,7 @@ test('the Worker: /api/account/* reaches the account, other /api/ paths 404, the
   const db = await localD1(t);
   if (!db) return;
   const worker = (await import('../worker/index.mjs')).default;
-  const env = { DB: db, TDW_RESET_CODE: '', ASSETS: { fetch: (req) => new Response('file ' + new URL(req.url).pathname) } };
+  const env = { DB: db, TDW_RESET_CODE: '', TDW_LEGACY_SIGNUP: '1', ASSETS: { fetch: (req) => new Response('file ' + new URL(req.url).pathname) } };
   const post = (url, body) => worker.fetch(new Request(url, { method: 'POST', headers: { 'X-TDW': '1', 'Sec-Fetch-Site': 'same-origin' }, body: JSON.stringify(body || {}) }), env);
   const up = await post('https://tendollarwords.cristianbagrin.com/api/account/signup', { email: 'a@b.co', auth: auth() });
   assert.equal(up.status, 200);
@@ -230,6 +230,12 @@ test('the Worker: /api/account/* reaches the account, other /api/ paths 404, the
   assert.equal(await (await worker.fetch(new Request('https://x.test/js/app.js?v=1'), env)).text(), 'file /js/app.js');
   const off = await post('https://x.test/api/account/reset', { email: 'a@b.co', code: 'whatever-long', auth: auth() });
   assert.equal(off.status, 403, 'no TDW_RESET_CODE, no resets');
+  const closed = await worker.fetch(new Request('https://x.test/api/account/signup', { method: 'POST', headers: { 'X-TDW': '1' }, body: JSON.stringify({ email: 'e@f.co', auth: auth() }) }), Object.assign({}, env, { TDW_LEGACY_SIGNUP: undefined }));
+  assert.deepEqual([closed.status, (await closed.json()).error], [410, 'moved'], 'production: no new old-style accounts');
+  const vault = await post('https://x.test/api/vault/pull', { id: 'a'.repeat(64), secret: 'S'.repeat(43) });
+  assert.deepEqual([vault.status, (await vault.json()).rev], [200, 0]);
+  const devProxy = await post('http://127.0.0.1:8787/api/dev-account/login', {});
+  assert.equal(devProxy.status, 404, 'no DEV_ACCOUNT_API, no proxy');
 });
 
 test('a reset needs the site code, then starts the account again under the new password', async () => {
@@ -239,11 +245,11 @@ test('a reset needs the site code, then starts the account again under the new p
     method: 'POST', headers: Object.assign({ 'x-tdw': '1', 'content-type': 'application/json' }, cookie ? { cookie } : {}), body: JSON.stringify(body || {})
   }), action);
 
-  const off = callOn(make({ kv: mem(), secure: false }));
+  const off = callOn(make({ kv: mem(), secure: false, legacySignup: true }));
   assert.equal((await off('reset', { email: 'a@b.co', code: 'anything-long', auth: AUTH2 })).status, 403);
 
   const kv = mem();
-  const api = callOn(make({ kv, secure: false, resetCode: 'correct-horse-battery' }));
+  const api = callOn(make({ kv, secure: false, legacySignup: true, resetCode: 'correct-horse-battery' }));
   const up = await api('signup', { email: 'a@b.co', auth: AUTH1 });
   assert.equal(up.status, 200);
   const oldId = (await up.json()).userId;
@@ -265,8 +271,47 @@ test('a reset needs the site code, then starts the account again under the new p
 
 test('wrong reset codes lock the email out like wrong passwords', async () => {
   const { createHandler: make, memoryKV: mem } = await import('../worker/account-api.mjs');
-  const h = make({ kv: mem(), secure: false, resetCode: 'correct-horse-battery' });
+  const h = make({ kv: mem(), secure: false, legacySignup: true, resetCode: 'correct-horse-battery' });
   const api = (body) => h(new Request('http://x/api/account/reset', { method: 'POST', headers: { 'x-tdw': '1' }, body: JSON.stringify(body) }), 'reset');
   for (let k = 0; k < 8; k++) assert.equal((await api({ email: 'a@b.co', code: 'nope-nope-nope', auth: 'B'.repeat(43) })).status, 401);
   assert.equal((await api({ email: 'a@b.co', code: 'correct-horse-battery', auth: 'B'.repeat(43) })).status, 429);
+});
+
+test('the move: status says whether an old account is left, and retiring it stops sign-in, pull and push but keeps the record', async () => {
+  const { kv, call } = setup();
+  const a = auth();
+  assert.deepEqual((await call('status', { email: 'a@b.co' })).body, { legacy: false });
+  const up = await call('signup', { email: 'a@b.co', auth: a });
+  await call('push', { base: 0, iv: IV, ct: CT }, up.cookie);
+  assert.deepEqual((await call('status', { email: ' A@b.co ' })).body, { legacy: true });
+  const other = await call('login', { email: 'a@b.co', auth: a });
+  assert.equal((await call('retire', { auth: auth() }, up.cookie)).status, 401, 'needs the password');
+  assert.equal((await call('retire', { auth: a }, up.cookie)).status, 200);
+  assert.deepEqual((await call('status', { email: 'a@b.co' })).body, { legacy: false });
+  assert.equal((await call('login', { email: 'a@b.co', auth: a })).status, 410);
+  assert.equal((await call('login', { email: 'a@b.co', auth: auth() })).status, 401, 'a wrong password still says wrong');
+  assert.equal((await call('pull', {}, other.cookie)).status, 401, 'every session ends');
+  const rec = [...kv.dump().entries()].find(([k]) => k.startsWith('user/'))[1];
+  const data = JSON.parse(rec.v);
+  assert.equal(data.doc.ct, CT, 'the old document stays');
+  assert.ok(data.retiredAt > 0);
+});
+
+test('a session on a retired account is refused with "moved"', async () => {
+  const { kv, call } = setup();
+  const a = auth();
+  const up = await call('signup', { email: 'a@b.co', auth: a });
+  const key = [...kv.dump().keys()].find((k) => k.startsWith('user/'));
+  const cur = await kv.get(key);
+  await kv.put(key, Object.assign({}, cur.data, { retiredAt: 1 }));
+  const r = await call('push', { base: 0, iv: IV, ct: CT }, up.cookie);
+  assert.deepEqual([r.status, r.body.error], [410, 'moved']);
+});
+
+test('without the option, sign-up and reset are closed', async () => {
+  const h = createHandler({ kv: memoryKV(), secure: false, resetCode: 'correct-horse-battery' });
+  for (const action of ['signup', 'reset']) {
+    const res = await h(new Request('http://x/api/account/' + action, { method: 'POST', headers: { 'x-tdw': '1' }, body: JSON.stringify({ email: 'a@b.co', auth: auth(), code: 'correct-horse-battery' }) }), action);
+    assert.equal(res.status, 410);
+  }
 });

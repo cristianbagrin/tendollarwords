@@ -1,6 +1,10 @@
 // The app with accounts, on this computer: serves app/ with the headers from app/_headers, and
 // answers /api/account/* with the same code the Worker runs. No install needed.
-//   node tools/dev-server.mjs [--port 8765] [--db <folder>] [--reset-code <code>]
+//   node tools/dev-server.mjs [--port 8765] [--db <folder>] [--reset-code <code>] [--legacy-signup]
+//                             [--account-api http://127.0.0.1:8790/api/]
+// --account-api answers /api/dev-account/* from the shared account service running on this
+// computer (cristianbagrin's site/, `npx wrangler dev`); set localStorage['tdw.dev.accountApi'] to
+// '/api/dev-account/' in the page to use it. --legacy-signup reopens old-style sign-ups.
 // Accounts live in memory and go when the server stops. With --db they're kept in that folder, in
 // a local D1 database (the same storage code as production; needs `npm install`). For the real
 // Worker, static files and all, use `npm run dev` (wrangler dev) instead.
@@ -9,6 +13,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHandler, memoryKV, d1KV } from '../worker/account-api.mjs';
+import { createVaultHandler } from '../worker/vault-api.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../app');
 const arg = (name) => { const i = process.argv.indexOf(name); return i > 0 ? process.argv[i + 1] : null; };
@@ -47,17 +52,33 @@ async function store() {
   return d1KV(env.DB);
 }
 
-const handle = createHandler({ kv: await store(), secure: false, resetCode: process.env.TDW_RESET_CODE || arg('--reset-code') || '' });
+const KV = await store();
+const handlers = {
+  account: createHandler({ kv: KV, secure: false, legacySignup: process.argv.includes('--legacy-signup'), resetCode: process.env.TDW_RESET_CODE || arg('--reset-code') || '' }),
+  vault: createVaultHandler({ kv: KV })
+};
+const ACCOUNT_API = arg('--account-api');
 const HEADERS = siteHeaders();
 
 http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://' + (req.headers.host || 'localhost'));
-  const api = /^\/api\/account\/([a-z]+)$/.exec(url.pathname);
+  const dev = /^\/api\/dev-account\/(.+)$/.exec(url.pathname);
+  if (dev && ACCOUNT_API) {
+    const chunks = [];
+    for await (const c of req) chunks.push(c);
+    const headers = {};
+    for (const h of ['authorization', 'content-type']) if (req.headers[h]) headers[h] = req.headers[h];
+    const r = await fetch(ACCOUNT_API.replace(/\/?$/, '/') + dev[1] + url.search, { method: req.method, headers, body: req.method === 'GET' ? undefined : Buffer.concat(chunks) });
+    res.writeHead(r.status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.end(Buffer.from(await r.arrayBuffer()));
+    return;
+  }
+  const api = /^\/api\/(account|vault)\/([a-z]+)$/.exec(url.pathname);
   if (api) {
     const chunks = [];
     for await (const c of req) chunks.push(c);
     const request = new Request(url, { method: req.method, headers: req.headers, body: req.method === 'GET' || req.method === 'HEAD' ? undefined : Buffer.concat(chunks) });
-    const response = await handle(request, api[1]);
+    const response = await handlers[api[1]](request, api[2]);
     res.writeHead(response.status, Object.fromEntries(response.headers));
     res.end(Buffer.from(await response.arrayBuffer()));
     return;

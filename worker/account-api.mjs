@@ -1,11 +1,17 @@
-/* Accounts. The server never sees a password or a key. The browser turns the password into two
+/* The old accounts (before 4.0), kept so existing people can move to their cristianbagrin.com
+   account: the browser signs in here one last time, takes the document, re-encrypts it into the
+   new vault (vault-api.mjs), checks it reads back, and then retires the old account. A retired
+   account keeps its record (for 30 days; nothing here deletes it) but no longer signs in, pulls or
+   pushes. New accounts and resets happen on cristianbagrin.com, so signup and reset are closed.
+
+   The server never sees a password or a key. The browser turns the password into two
    keys: it sends one to prove who you are (kept here only as a scrypt hash) and keeps the other to
    encrypt your data. What an account holds is one encrypted document, with a revision number so
    two devices can't overwrite each other's changes.
 
    Records in the key-value store:
      email/<sha256 of the email>        { userId }
-     user/<userId>                      { id, email, salt, hash, createdAt, doc: { rev, iv, ct, at } }
+     user/<userId>                      { id, email, salt, hash, createdAt, doc: { rev, iv, ct, at }, retiredAt? }
      session/<userId>/<sha256 of token> { created, seen, expires }
      fail/<sha256 of the email>         { n, since }   wrong passwords, for the lockout
 
@@ -215,13 +221,16 @@ export function createHandler(opts) {
     await dropSessions(userId, null);
   }
 
+  const moved = () => fail(410, 'moved', 'Ten Dollar Words now signs in with your cristianbagrin.com account. Reload the page to get the new version.');
+
   const actions = {
-    /* A forgotten password. The server can't read an account (the key is made from the password),
+    /* (Closed since 4.0: resets happen on cristianbagrin.com.) A forgotten password. The server can't read an account (the key is made from the password),
        so a reset can only start it again: the old account goes and a new one takes the email, with
        the new password. Nobody is emailed, so what proves the request is the site's reset code:
        the TDW_RESET_CODE the site's owner set. Without one, resets are off. Wrong codes count
        toward the same lockout as wrong passwords. */
     async reset(body) {
+      if (!opts.legacySignup) return moved();
       const code = String(opts.resetCode || '');
       if (code.length < 8) return fail(403, 'reset_off', 'Password reset isn’t set up on this site yet.');
       const email = normEmail(body.email);
@@ -241,6 +250,7 @@ export function createHandler(opts) {
     },
 
     async signup(body) {
+      if (!opts.legacySignup) return moved();
       const email = normEmail(body.email);
       if (email.length > 254 || !EMAIL_RE.test(email)) return fail(400, 'bad_email', 'That email address looks wrong.');
       if (!AUTH_RE.test(String(body.auth || ''))) return fail(400, 'bad_request', 'That request is missing something.');
@@ -275,8 +285,28 @@ export function createHandler(opts) {
       }
       const bad = await verify(user, body.auth);
       if (bad) return bad;
+      if (user.data.retiredAt) return moved();
       return json(200, Object.assign({ email: user.data.email, userId: user.data.id }, docOut(user.data.doc)),
         { 'Set-Cookie': await newSession(user.data.id) });
+    },
+
+    // Whether an email has an old account that hasn't moved yet. Signing up here already told
+    // anyone whether an email had an account, so this gives nothing new away.
+    async status(body) {
+      const email = normEmail(body.email);
+      const idx = EMAIL_RE.test(email) ? await kv.get('email/' + sha(email)) : null;
+      const user = idx && idx.data ? await kv.get('user/' + idx.data.userId) : null;
+      return json(200, { legacy: !!(user && user.data && !user.data.retiredAt) });
+    },
+
+    // The move is done and checked: the account stops signing in. Its record stays.
+    async retire(body, s) {
+      const bad = await verify(s.user, body.auth);
+      if (bad) return bad;
+      const next = Object.assign({}, s.user.data, { retiredAt: now() });
+      if (!(await kv.put('user/' + s.userId, next, { etag: s.user.etag }))) return conflict(s.userId);
+      await dropSessions(s.userId, null);
+      return json(200, { ok: true }, { 'Set-Cookie': cookie('', 0) });
     },
 
     async logout(body, s) {
@@ -314,7 +344,7 @@ export function createHandler(opts) {
       return json(200, { ok: true }, { 'Set-Cookie': cookie('', 0) });
     }
   };
-  const OPEN = new Set(['signup', 'login', 'logout', 'reset']);
+  const OPEN = new Set(['signup', 'login', 'logout', 'reset', 'status']);
 
   return async function handle(req, action) {
     if (req.method !== 'POST') return fail(405, 'method', 'Use POST.', null);
@@ -330,6 +360,7 @@ export function createHandler(opts) {
     if (!body || typeof body !== 'object' || Array.isArray(body)) return fail(400, 'bad_request', 'That request is missing something.');
     const s = await session(req);
     if (!s && !OPEN.has(action)) return fail(401, 'signed_out', 'You are signed out.', null);
+    if (s && s.user.data.retiredAt && action !== 'logout') return moved();
     const res = await actions[action](body, s);
     if (!s || !s.refresh || res.headers.has('Set-Cookie')) return res;
     const headers = new Headers(res.headers);
