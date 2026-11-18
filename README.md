@@ -2,9 +2,14 @@
 
 A writing app where every word costs $10. Version 3 is the Margin design (`docs/DESIGN.md`): one quiet page that never moves, a thin bar over it (the spine) with the draft's title on the left and what the words have cost so far on the right, and a review (⌘E) that arrives like an editor's pencil: hard sentences bracketed in the left gutter, phrases underlined, and short notes in the right margin beside their line. Everything else (drafts aside, formats, the Lab, Trim, challenges, Overflow, settings, sharing) is in the command palette (⌘K, or the ⋯ in the spine). Optional AI help comes from Google Gemini, and drafts can sync both ways with a Notion database.
 
-An account (Settings → Account) keeps your Notion connection, Gemini key, settings and dictionary, so every browser you sign in to is set up at once. On a phone the app speaks phone: taps instead of clicks and typing shortcuts instead of keyboard shortcuts.
+Your cristianbagrin.com account (Settings → Account), the one Chris's other apps use too, keeps your Notion connection, Gemini key, settings and dictionary, end-to-end encrypted, so every browser you sign in to is set up at once. On a phone the app speaks phone: taps instead of clicks and typing shortcuts instead of keyboard shortcuts.
 
-It's plain HTML, CSS, and JavaScript with no build step. It lives at https://tendollarwords.cristianbagrin.com, on one Cloudflare Worker: the Worker serves `app/` as it is, and the one piece that runs on a server is the account (`worker/`, with its records in a Cloudflare D1 database).
+It's plain HTML, CSS, and JavaScript with no build step. It lives at https://tendollarwords.cristianbagrin.com, on one Cloudflare Worker: the Worker serves `app/` as it is, and the one piece that runs on a server is the encrypted synced document (`worker/`, with its records in a Cloudflare D1 database). Sign-in happens at account.cristianbagrin.com.
+
+## New in 4.0
+
+- **One account for all of Chris's apps.** Sign in with your cristianbagrin.com account. If you had a Ten Dollar Words account, sign in with the same email and password: it moves over by itself (see Accounts).
+- **A recovery key.** When your account's keys are made, the app shows a recovery key once. With it, a forgotten password no longer means losing what you synced. Forgot your password? Settings → Account → Forgot your password? emails a link.
 
 ## New in 3.1
 
@@ -17,7 +22,6 @@ It's plain HTML, CSS, and JavaScript with no build step. It lives at https://ten
 - **Threads** is a format (500 characters a post, chained like X), and the palette and bench post to X, Threads or LinkedIn.
 - **The gutter shows only what is extra.** What each whole paragraph costs is a setting (Settings → Writing), off by default.
 - **Effects** (Settings → Look, and Sound → Desk sounds). Words cut by a fix burst into letters and the saving flies to the spend; Trim reads down the page and strikes its cuts in turn; rolling a challenge spins a reel and a red pencil rings what you got; a challenge met is stamped. Reduce Motion turns the movement off.
-- **Forgot your password?** Settings → Account → Sign in. The password is the key the account is encrypted with, so it can't be recovered; a reset starts the account again under a new password and fills it from the browser you're in. It needs the site's reset code: the Worker secret `TDW_RESET_CODE` (8 characters or more), set with `npx wrangler secret put TDW_RESET_CODE`. Without it, resets are off.
 
 ## Reviewing
 
@@ -107,9 +111,11 @@ Right-click the page for Alternatives for selection, AI alternatives for selecti
 
 ## Run it locally
 
-From this folder, run `node tools/dev-server.mjs` in Terminal, then open http://127.0.0.1:8765/. It serves the app and the account API; accounts live in memory until you stop it (add `--db some-folder` to keep them, after `npm install`).
+From this folder, run `node tools/dev-server.mjs` in Terminal, then open http://127.0.0.1:8765/. It serves the app and the vault; what it stores lives in memory until you stop it (add `--db some-folder` to keep it, after `npm install`).
 
-For the real thing, the Worker itself: `npm install` once, then `npm run dev` and open http://127.0.0.1:8787/. Accounts are kept in a local D1 database under `.wrangler/`. To try "Forgot your password?", copy `.dev.vars.example` to `.dev.vars`.
+For the real thing, the Worker itself: `npm install` once, then `npm run dev` and open http://127.0.0.1:8787/. Records are kept in a local D1 database under `.wrangler/`.
+
+Signing in needs the account service. To test without touching the real one, run it on this computer (in the cristianbagrin site's `site/` folder: `npx wrangler dev --port 8790`), copy `.dev.vars.example` to `.dev.vars` (it points `DEV_ACCOUNT_API` there), or pass `--account-api http://127.0.0.1:8790/api/` to the dev server. Then, in the page's console: `localStorage.setItem('tdw.dev.accountApi', '/api/dev-account/')` and reload. The app only reads that setting on 127.0.0.1 or localhost, and the Worker only forwards when `DEV_ACCOUNT_API` is set, which production never has.
 
 `python3 -m http.server 8765 --directory app` still works for everything except accounts. (The Run button in `.claude/launch.json` can fail with "Operation not permitted", because macOS blocks the app's python3 from reading iCloud Drive. Use the Terminal command instead.)
 
@@ -141,12 +147,14 @@ To use a different database, press Disconnect, then Connect with the new link (t
 
 ## Accounts
 
-Settings → Account → Create account, with an email and a password. Then sign in on any other browser (your phone, a second computer) and it's set up: the Notion secret and database, the Gemini key and model, every setting, your dictionary, and each Notion draft's format, budget, message and backspace switch, which Notion doesn't keep. Change something on one device and the others pick it up when you next bring the app to the front (or within 5 minutes). The drafts themselves travel through Notion, as before.
+Settings → Account → Sign in, with your cristianbagrin.com account (or Create account for a new one). It's the same account as Chinese Brain, At Peace and Money in Order. Then sign in on any other browser (your phone, a second computer) and it's set up: the Notion secret and database, the Gemini key and model, every setting, your dictionary, and each Notion draft's format, budget, message and backspace switch, which Notion doesn't keep. Change something on one device and the others pick it up when you next bring the app to the front (or within 5 minutes). The drafts themselves travel through Notion, as before.
 
-- **Private by design.** Your password never leaves the browser. It's turned into two keys there (PBKDF2, 600,000 rounds): one signs you in, and the server keeps only a scrypt hash of it; the other encrypts everything the account keeps (AES-GCM) and never leaves your devices. The server stores ciphertext it can't read, in a Cloudflare D1 database.
-- **No password reset yet.** Resetting would need email, and the server couldn't decrypt your data anyway, so let your password manager save the password. Changing it (Settings → Account) re-encrypts the account and signs your other devices out, which then sign in with the new one.
-- **Signing out** takes your keys and Notion connection out of that browser. Drafts stay. **Deleting the account** removes it from the server; each browser keeps what it has.
-- Sessions last a year from your last visit. Eight wrong passwords in a row lock the account for 15 minutes.
+- **End-to-end encrypted.** What syncs is encrypted in your browser (AES-256-GCM) with a random data key made on your first device. The servers store only encrypted data: this app's server keeps the encrypted document, and the account service keeps the data key wrapped twice, once with a key made from your password (PBKDF2, 600,000 rounds, a random salt) and once with your recovery key. The account service sees your password when you sign in, to check it, but never stores it, and it has no key to your data. The password never goes to this app's server.
+- **Your recovery key** (26 letters and numbers) is shown once, when your account's keys are made: copy it or download it, and keep it somewhere safe, like a password manager. Settings → Account → Recovery key makes a new one (the old one stops working).
+- **Forgot your password?** Settings → Account → Forgot your password? emails a link to set a new one. Then sign in with it: a browser that's still signed in carries on and asks for the new password once, quietly; a new browser asks for your recovery key once. Lose the password, the recovery key and every signed-in device, and the synced data can't be opened by anyone. What's on each device stays, and "Start fresh" makes new keys.
+- **Changing your password** (Settings → Account, or on account.cristianbagrin.com) changes it for the whole account and signs your other devices out of it. They keep syncing and ask for the new password once.
+- **Signing out** takes your keys and Notion connection out of that browser. Drafts stay. **Remove synced data** deletes what Ten Dollar Words keeps in the account and stops every browser syncing it; each browser keeps what it has. To delete the account itself, use account.cristianbagrin.com.
+- **Moving from an old Ten Dollar Words account** (before 4.0): sign in with the same email and password. The app opens the old account one last time, makes your cristianbagrin.com account with the same password (or asks for that account's password if you already have one), shows your recovery key, merges the old document into the new storage field by field, reads it back and checks every field arrived, and only then retires the old account. A retired account no longer signs in, but its record stays on the server for now. A browser that was signed in to the old account keeps what it hadn't sent yet and merges it in at the next sign-in.
 - On an iPhone, the app added to the Home Screen has its own storage, separate from Safari's, so sign in there too.
 
 ## On a phone
@@ -209,10 +217,11 @@ The review underlines unknown words in red pencil. Open its note for fixes, or "
   README.md                this file
   wrangler.jsonc           the Cloudflare Worker: app/ as static files, /api/* to the Worker, the D1 database
   package.json             wrangler (to run and deploy the Worker) and the npm scripts
-  .dev.vars.example        the reset code for wrangler dev (copy to .dev.vars)
+  .dev.vars.example        settings for wrangler dev (copy to .dev.vars): the local account service
   worker/
-    index.mjs              the Worker: /api/account/* to the account, everything else from app/
-    account-api.mjs        accounts: sign up and in, sessions, the lockout, the encrypted document; D1 storage
+    index.mjs              the Worker: /api/vault/* and /api/account/*, everything else from app/
+    vault-api.mjs          the encrypted synced document, at an address made from the data key; D1 storage
+    account-api.mjs        the old accounts (before 4.0), kept so people can move: status and retire
   migrations/              the D1 database's table
   scripts/migrate-from-netlify.mjs   moves the accounts from Netlify Blobs to D1, and checks the move
   tests/                   node tests (engine, formatting, formats, Notion mapping, spelling, the vault, the account API),
@@ -242,8 +251,9 @@ The review underlines unknown words in red pencil. Open its note for fixes, or "
     js/ai-mock.js          fake AI for tests (switched on from JS only)
     js/notion.js           Notion API client
     js/sync.js             two-way sync with Notion
-    js/vault.js            the account's keys from your password, encryption, and merging two copies
-    js/account.js          signing in, and keeping keys, settings and draft formats in step with the account
+    js/vault.js            encrypting the synced document, and merging two copies (and the old accounts' keys)
+    js/keyring.js          the data key, wrapped by your password and your recovery key; what it opens
+    js/account.js          signing in, the move from old accounts, and keeping keys, settings and draft formats in step
     js/editor.js           the editor: one line per paragraph, its own undo, X post windows, the fold
     js/ui.js               shared helpers: phone or computer, Mac or not, elements, toasts, money, icons, toggles, menus
     js/formats.js          post formats: what each platform shows, X counting, the LinkedIn fold
@@ -285,7 +295,6 @@ To move everything: at the old address, ⋯ → **Save a backup** (the old addre
 
 Not built yet, on purpose:
 
-- Password reset by email (it needs an email service, and would start the account over, since only your password can decrypt it).
 - Sign in with a passkey (Face ID or Touch ID) instead of a password.
 - Drafts that sync through the account for people who don't use Notion.
 - More than one Notion database at a time (say, business and personal writing).

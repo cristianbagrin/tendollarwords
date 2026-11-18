@@ -304,6 +304,7 @@ html[data-drafts="pinned"] .drafts { left: 0; top: 0; bottom: 0; background: var
 .recovery-slip::before { left: -5px; clip-path: inset(0 0 0 50%); }
 .recovery-slip::after { right: -5px; clip-path: inset(0 50% 0 0); }
 .recovery-key { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 12px; font: 500 17px/1.5 var(--font-code); letter-spacing: .1em; color: var(--ink); user-select: all; -webkit-user-select: all; }
+.recovery-break { flex-basis: 100%; height: 0; }
 .recovery-actions { display: flex; gap: 8px; margin: 14px 0 19px; }
 .recovery-actions .icon { width: 14px; height: 14px; }
 .recovery-fine { max-width: 38ch; margin: 0 0 21px; color: var(--ink-3); font-size: 12px; line-height: 1.5; }

@@ -445,7 +445,7 @@
         el('h2', { id: 'recovery-title', text: 'Save your recovery key' }),
         el('p', { class: 'recovery-lede', text: 'If you forget your password, this key is the only way back into your synced data. Keep it somewhere safe, like a password manager.' }),
         el('div', { class: 'recovery-slip' }, el('code', { class: 'recovery-key', 'aria-label': 'Recovery key ' + key.split('').join(' ') },
-          ...key.split('-').map((g) => el('span', { text: g })))),
+          ...key.split('-').flatMap((g, i) => (i === 4 ? [el('i', { class: 'recovery-break' }), el('span', { text: g })] : [el('span', { text: g })])))),
         el('div', { class: 'recovery-actions' }, copy, download),
         el('p', { class: 'recovery-fine', text: 'Lose your password, this key and every signed-in device, and the synced data can’t be opened by anyone, including us. What’s on each device stays.' }),
         el('div', { class: 'recovery-foot' },
@@ -456,6 +456,8 @@
       dlg._wired = true;
       dlg._onDismiss = () => TDW.Editor.focus();
       dlg.addEventListener('cancel', (e) => e.preventDefault());
+      // Browsers close a modal on Escape anyway when the page hasn't been clicked yet: open it again.
+      dlg.addEventListener('close', () => { if (Account.state().recoveryKey) setTimeout(showRecoveryKey); });
     }
     dlg.classList.add('no-sheet');
     present(dlg);

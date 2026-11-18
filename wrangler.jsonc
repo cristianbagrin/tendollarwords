@@ -1,5 +1,5 @@
 // One Worker: app/ as static assets (app/_headers included), and /api/* in worker/index.mjs.
-// Accounts live in the D1 database bound as DB (schema: migrations/).
+// The encrypted synced documents (and the old accounts, kept for the move) live in the D1 database bound as DB (schema: migrations/).
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "tendollarwords",
@@ -23,9 +23,8 @@
       "migrations_dir": "migrations"
     }
   ],
-  // Secrets (not in this file): TDW_RESET_CODE turns on "Forgot your password?" (8+ characters).
-  //   production: npx wrangler secret put TDW_RESET_CODE
-  //   wrangler dev: .dev.vars (copy .dev.vars.example)
+  // Sign-in happens at account.cristianbagrin.com. For wrangler dev, .dev.vars (copy
+  // .dev.vars.example) can point the page at a local copy of that service (DEV_ACCOUNT_API).
   "routes": [
     { "pattern": "tendollarwords.cristianbagrin.com", "custom_domain": true }
   ],

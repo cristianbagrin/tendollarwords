@@ -21,7 +21,8 @@ export default {
     // account service running on this computer answers here, on the app's own origin, so the
     // page's CSP needn't change. The app uses it when localStorage['tdw.dev.accountApi'] says so.
     const dev = DEV_ACCOUNT.exec(url.pathname);
-    if (dev && env.DEV_ACCOUNT_API && /^(127\.0\.0\.1|localhost)$/.test(url.hostname)) {
+    // (wrangler dev reports the route's hostname, not 127.0.0.1, so the variable alone decides.)
+    if (dev && env.DEV_ACCOUNT_API) {
       const to = env.DEV_ACCOUNT_API.replace(/\/?$/, '/') + dev[1] + url.search;
       const headers = {};
       for (const h of ['authorization', 'content-type']) if (req.headers.get(h)) headers[h] = req.headers.get(h);
