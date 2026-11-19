@@ -7,7 +7,7 @@
 
   const DEFAULTS = {
     skin: 'typewriter', autoNight: false, sound: 'typewriter', volume: 0.35, typewriterScroll: true, textSize: 0, defaultBudget: 2000,
-    dictionary: [], noBackspace: true, defaultFormat: 'basic', fixHighlights: true,
+    dictionary: [], noBackspace: true, defaultFormat: 'basic', fixHighlights: true, tidy: true,
     // What each paragraph costs, in the gutter (off: only what is extra shows); the bench under the
     // page; motion and sounds for cuts, trims and challenges; shortcuts changed from their defaults.
     paragraphCost: false, bench: true, effects: true, effectSounds: true, keys: {},

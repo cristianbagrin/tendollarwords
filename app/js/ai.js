@@ -26,6 +26,8 @@
   const LAB = { type: 'OBJECT', properties: { marks: { type: 'ARRAY', items: { type: 'OBJECT',
     properties: { quote: { type: 'STRING' }, reason: { type: 'STRING' }, fix: { type: 'STRING' } }, required: ['quote', 'reason', 'fix'] } } },
     required: ['marks'] };
+  const TIDY = { type: 'OBJECT', properties: { edits: { type: 'ARRAY', items: { type: 'OBJECT',
+    properties: { find: { type: 'STRING' }, replace: { type: 'STRING' } }, required: ['find', 'replace'] } } }, required: ['edits'] };
   const CUTS = { type: 'OBJECT', properties: { cuts: { type: 'ARRAY', items: { type: 'STRING' } } }, required: ['cuts'] };
   const MESSAGE = { type: 'OBJECT', properties: {
     takeaway: { type: 'STRING' }, verdict: { type: 'STRING', enum: ['clear', 'mixed', 'unclear'] },
@@ -181,16 +183,16 @@
   }
 
   // use: { key, model } to test a key and model before saving them.
-  async function generate(prompt, schema, temperature, signal, use) {
+  async function generate(prompt, schema, temperature, signal, use, system) {
     const key = use ? use.key : TDW.Store.getKey();
     if (!key) throw fail('no_key');
-    if (use) return generateWith(use.model, key, prompt, schema, temperature, signal);
+    if (use) return generateWith(use.model, key, prompt, schema, temperature, signal, system);
     relistSoon(key);
     const saved = TDW.Store.getModel();
     let firstError = null, savedGone = false;
     for (const model of modelOrder()) {
       try {
-        const out = await generateWith(model, key, prompt, schema, temperature, signal);
+        const out = await generateWith(model, key, prompt, schema, temperature, signal, system);
         sticky = model;
         if (savedGone && model !== saved && TDW.Store.getModelMode() === 'auto') TDW.Store.setModel(model); // the saved model was retired
         return out;
@@ -203,12 +205,12 @@
     throw firstError;
   }
 
-  async function generateWith(model, key, prompt, schema, temperature, signal) {
+  async function generateWith(model, key, prompt, schema, temperature, signal, system) {
     const body = await request(model + ':generateContent', {
       method: 'POST',
       signal,
       body: JSON.stringify({
-        systemInstruction: { parts: [{ text: SYSTEM }] },
+        systemInstruction: { parts: [{ text: system || SYSTEM }] },
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         generationConfig: { temperature, responseMimeType: 'application/json', responseSchema: schema }
       })
@@ -234,6 +236,12 @@
       marks: list.filter((m) => m && typeof m.quote === 'string' && m.quote.trim())
         .slice(0, 40).map((m) => ({ quote: m.quote, reason: str(m.reason), fix: str(m.fix) }))
     };
+  }
+
+  function checkTidy(raw) {
+    const list = raw && Array.isArray(raw.edits) ? raw.edits : [];
+    return { edits: list.filter((e) => e && typeof e.find === 'string' && typeof e.replace === 'string' && e.find.trim())
+      .slice(0, 300).map((e) => ({ find: e.find, replace: e.replace })) };
   }
 
   function checkCuts(raw) {
@@ -365,6 +373,21 @@
         'Return the cuts in the order they appear.'
       ].join('\n\n')
     },
+    // Tidy with AI: a proofread, not an edit. Exact-substring fixes the app can check and mark.
+    tidy: {
+      schema: TIDY, temperature: 0.1, check: checkTidy,
+      system: 'You are a careful proofreader, not an editor. You fix clear mistakes and nothing else. You never reword, tighten, reorder or restyle anything, and you leave the writer\'s voice, tone and word choices exactly as they are. Reply only with JSON that matches the schema.',
+      prompt: (i) => [
+        'Proofread the text below. Fix only clear mistakes: grammar (subject and verb not agreeing, a wrong form such as their/there/they\'re, its/it\'s, your/you\'re, then/than, "should of", "a" or "an" in the wrong place), typos, and missing or wrong punctuation.',
+        'Rules:\n' +
+        '- Never change wording, word choice, tone or style. Never rephrase, shorten, add or improve. If a sentence is correct, leave it, even if you would write it differently.\n' +
+        '- Leave alone: fragments and run-ons that read as the writer\'s style, slang, spelling variants, names, brands, technical terms, numbers, and anything quoted from someone else.\n' +
+        '- Never touch code in backticks, link addresses, URLs, @handles or #tags. Keep markdown markers (** * _ ~ ` [ ] ( ) # -) exactly where they are.\n' +
+        '- Each edit has "find": a stretch copied character for character from the text, usually 2 to 6 words, long enough to appear only once and never crossing a line break; and "replace": the same stretch with only the fix made.\n' +
+        '- Edits never overlap. If unsure about a fix, skip it. If nothing needs fixing, return an empty list.',
+        block('TEXT', i.text)
+      ].join('\n\n')
+    },
     messageCheck: {
       schema: MESSAGE, temperature: 0.4, check: checkMessage,
       prompt: (i) => [
@@ -387,7 +410,7 @@
     const f = FEATURES[feature];
     const raw = TDW.mockAI
       ? await TDW.AIMock.respond(feature, input, signal)
-      : await generate(f.prompt(input), f.schema, f.temperature, signal);
+      : await generate(f.prompt(input), f.schema, f.temperature, signal, null, f.system);
     return f.check(raw);
   }
 
@@ -450,6 +473,8 @@
       return out;
     },
     messageCheck: (input, signal) => run('messageCheck', input, signal),
+    // input: { text } → { edits: [{ find, replace }] }: grammar and typo fixes, exact substrings, nothing reworded.
+    tidy: (input, signal) => run('tidy', { text: String(input.text || '').slice(0, MAX_TIGHTEN) }, signal),
     status() {
       if (TDW.mockAI) return 'mock';
       return TDW.Store.getKey() ? 'ready' : 'none';

@@ -20,7 +20,7 @@
   const LISTY = new Set(['li', 'ol', 'todo', 'quote', 'toggle']);
   // A fresh block of a type (Turn into, the shortcuts, the "/" menu).
   const newBlk = (type, num) => (type === 'ol' ? { type, num: num || 1 } : type === 'todo' ? { type, checked: false } : type === 'toggle' ? { type, open: true } : { type: type || 'p' });
-  const FREE_UNDO = new Set(['marks', 'stash', 'swap', 'move']); // undone even with backspace off: nothing typed is lost
+  const FREE_UNDO = new Set(['marks', 'stash', 'swap', 'move', 'tidy']); // undone even with backspace off: nothing typed is lost
 
   let root = null;       // the contenteditable
   let surface = null;    // positioned parent of root, under and aids
@@ -45,6 +45,8 @@
   let wordMarks = [];
   let ann = Marks.EMPTY;  // alternatives and ghosts: they follow every edit and live in the undo history
   let labMarks = [];      // the Lab's marks and trim's cuts: { start, end, type, id }; an edit over one drops it
+  let tidyMarks = [];     // what "Tidy with AI" changed: { start, end, type, id, was, to }; a click puts `was` back
+  let tidyHold = false;   // a tidy was just undone: no more tidying until you type a word
   let openAlt = null;     // the alternative the panel is working on (underlined even with one option)
   let openNote = null;    // the note whose card is open
   let activeId = null;
@@ -234,9 +236,10 @@
     (m) => '<span class="fx fx-' + m.type + '">',
     (m) => '<span class="lab lab-' + m.type + (isActive(m) ? ' is-active' : '') + '" data-lab="' + esc(m.id) + '">',
     (m) => '<span class="hs hs-' + m.type + (isActive(m) ? ' is-active' : '') + '" data-id="' + esc(m.id) + '">',
-    (m) => '<mark class="hl hl-' + m.type + (isActive(m) ? ' is-active' : '') + '" data-id="' + esc(m.id) + '">'
+    (m) => '<mark class="hl hl-' + m.type + (isActive(m) ? ' is-active' : '') + '" data-id="' + esc(m.id) + '">',
+    (m) => '<span class="tidy-ai" data-tidy="' + esc(m.id) + '">'
   ];
-  const CLOSE = ['</span>', '</span>', '</span>', '</span>', '</span>', '</span>', '</span>', '</span>', '</mark>'];
+  const CLOSE = ['</span>', '</span>', '</span>', '</span>', '</span>', '</span>', '</span>', '</span>', '</mark>', '</span>'];
   const LAYERS = OPEN.length;
   const shownAlt = (a) => a.options.length > 1 || a.id === openAlt;
   // Each layer's marks, in markdown offsets, from what the editor holds now.
@@ -246,7 +249,7 @@
       if (!shownAlt(a)) continue;
       if (a.kind === 'sentence') sen.push(a); else if (a.kind === 'word') word.push(a);
     }
-    return [ann.ghosts, ann.hls || NONE, noteSegments(), sen, word, fxMarks, labMarks, sentMarks, wordMarks];
+    return [ann.ghosts, ann.hls || NONE, noteSegments(), sen, word, fxMarks, labMarks, sentMarks, wordMarks, tidyMarks];
   }
 
   // Notes can overlap; the page shows each stretch once, under the note that starts first.
@@ -345,7 +348,7 @@
     const folds = aids && aids.folds;
     const d = drawn;
     if (d && d.text === text && d.fx === fxMarks && d.sm === sentMarks && d.wm === wordMarks && d.folds === folds &&
-      d.ann === ann && d.lab === labMarks && d.openAlt === openAlt && d.openNote === openNote &&
+      d.ann === ann && d.lab === labMarks && d.tidy === tidyMarks && d.openAlt === openAlt && d.openNote === openNote &&
       d.active === activeId && d.thread === thread && d.rendered === rendered && root.childNodes.length === rendered.length) {
       placeAids();
       return;
@@ -376,7 +379,7 @@
       items[i] = a;
     }
     const touched = commit(items);
-    drawn = { text, fx: fxMarks, sm: sentMarks, wm: wordMarks, folds, active: activeId, thread, rendered, ann, lab: labMarks, openAlt, openNote };
+    drawn = { text, fx: fxMarks, sm: sentMarks, wm: wordMarks, folds, active: activeId, thread, rendered, ann, lab: labMarks, tidy: tidyMarks, openAlt, openNote };
     root.classList.toggle('is-empty', text === '');
     if (touched && document.activeElement === root) applySel();
     markCaretLine();
@@ -774,7 +777,7 @@
     setModel(state.text);
     sel = Object.assign({}, state.sel);
     pending = null;
-    fxMarks = sentMarks = wordMarks = labMarks = [];
+    fxMarks = sentMarks = wordMarks = labMarks = tidyMarks = [];
     ann = state.ann || Marks.EMPTY;
     render();
     focus();
@@ -789,6 +792,7 @@
     if (call('canDelete') === false && e.after.text !== e.before.text && !FREE_UNDO.has(e.kind)) { call('onBlocked'); return; } // undo would take text away
     history.undo.pop();
     history.redo.push(e);
+    if (e.kind === 'tidy') tidyHold = true;
     restore(e.before, 'undo');
   }
 
@@ -818,6 +822,7 @@
     sentMarks = shift(sentMarks, c.start, c.end, c.len);
     wordMarks = shift(wordMarks, c.start, c.end, c.len);
     labMarks = shift(labMarks, c.start, c.end, c.len);
+    tidyMarks = shift(tidyMarks, c.start, c.end, c.len);
     ann = Marks.applyChange(ann, before.text, text);
     expectSel = { start: sel.start, end: sel.end };
     if (text !== before.text) record(before, kind || 'edit', typed || insert);
@@ -934,7 +939,12 @@
     const style = sel.end > sel.start ? (() => { const i = vLineOf(sel.start), k = sel.start - vstarts[i]; const c = P[i].chars[k]; return pending || (c ? { f: c.f, link: c.link } : styleAt(sel.start)); })() : styleAt(sel.start);
     if (!s.includes('\n') && (typedOne || !/[\\*_~`[+]/.test(s))) {
       editVis(sel.start, sel.end, [{ chars: charsOf(s, style) }], kind, s);
-      if (typedOne) autoformat(s);
+      if (typedOne) {
+        autoformat(s);
+        if (/[\p{L}\p{N}]/u.test(s)) tidyHold = false;
+        const top = history.undo[history.undo.length - 1];
+        if (top && top.kind === 'type') liveTidy(s, false); // not after a format rule: that one just claimed the keystroke
+      }
       return;
     }
     const { pieces, firstBlk } = piecesOf(s, style);
@@ -1015,6 +1025,45 @@
       return true;
     }
     return false;
+  }
+
+  /* ---------- Tidy: low-risk fixes as you leave a word (the rules are in tidy.js) ---------- */
+
+  const TIDY_TRIGGER = /[\s.,;:!?)\]"\u201d]/;
+
+  // The caret just left a word or sentence (a space or punctuation was typed, or Enter): fix what is
+  // behind it. One undo step of its own, so ⌘Z right after puts back what you typed.
+  function liveTidy(ch, final) {
+    const T = TDW.Tidy;
+    if (!T || tidyHold || readOnly || composing || sel.start !== sel.end || !T.enabled()) return;
+    if (!final && !TIDY_TRIGGER.test(ch)) return;
+    if (call('canDelete') === false) return;
+    const i = vLineOf(sel.start);
+    if (P[i].blk.type === 'opaque' || P[i].blk.type === 'hr') return;
+    const base = starts[i], col = visToMd(sel.start) - base;
+    const over = (f) => ann.ghosts.concat(ann.alts).some((g) => g.start < base + f.end && g.end > base + f.start);
+    const list = T.fixes(lines[i], col, { final }).filter((f) => !over(f));
+    if (!list.length) return;
+    const a = base + list[0].start, b = base + list[list.length - 1].end;
+    const local = list.map((f) => Object.assign({}, f, { start: f.start + base - a, end: f.end + base - a }));
+    const caret = base + T.mapIndex(list, col);
+    applyMd(a, b, T.apply(text.slice(a, b), local), () => { const v = mdToVis(caret); return { start: v, end: v }; }, 'tidy', '');
+    flashFixed(list.filter((f) => /[A-Za-z]/.test(f.to)).map((f) => [base + T.mapIndex(list, f.start), base + T.mapIndex(list, f.start) + f.to.length]));
+  }
+
+  // A thin underline under each fixed word that fades out (none with reduced motion).
+  function flashFixed(spans) {
+    if (!aidsEl || !spans.length || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const sr = surface.getBoundingClientRect();
+    for (const [s, e] of spans) {
+      const ra = rectAtVis(mdToVis(s)), rb = rectAtVis(mdToVis(e));
+      if (!ra || !rb || Math.abs(ra.top - rb.top) > 2 || rb.left <= ra.left) continue;
+      const d = document.createElement('span');
+      d.className = 'tidy-flash';
+      d.style.cssText = 'left:' + (ra.left - sr.left) + 'px;top:' + (ra.top + ra.height - sr.top - 2) + 'px;width:' + (rb.left - ra.left) + 'px';
+      aidsEl.append(d);
+      setTimeout(() => d.remove(), 700);
+    }
   }
 
   /* ---------- Deleting ---------- */
@@ -1417,6 +1466,7 @@
     const replaces = () => sel.end > sel.start && call('canDelete') === false;
     if (t === 'insertParagraph' || t === 'insertLineBreak') {
       if (replaces()) { call('onBlocked'); return; }
+      if (t === 'insertParagraph') liveTidy('\n', true);
       return newline(t === 'insertLineBreak');
     }
     let data = e.data;
@@ -1815,7 +1865,8 @@
       const v = opts && opts.caret != null ? mdToVis(opts.caret) : vlength();
       sel = { start: v, end: v, backward: false };
       pending = null;
-      fxMarks = sentMarks = wordMarks = labMarks = [];
+      tidyHold = false;
+      fxMarks = sentMarks = wordMarks = labMarks = tidyMarks = [];
       ann = Marks.normalize(opts && opts.ann, text);
       openAlt = null;
       if (!(opts && opts.keepHistory)) { history.undo.length = 0; history.redo.length = 0; }
@@ -1838,7 +1889,7 @@
       sel = { start: mdToVis(move(s)), end: mdToVis(move(e)), backward: false };
       history.undo.length = 0;
       history.redo.length = 0;
-      fxMarks = sentMarks = wordMarks = labMarks = [];
+      fxMarks = sentMarks = wordMarks = labMarks = tidyMarks = [];
       let lost = [];
       if (opts && opts.ann) ann = Marks.normalize(opts.ann, text);
       else { const r = Marks.reanchor(ann, old, text); ann = r.ann; lost = r.lost; }
@@ -1863,6 +1914,7 @@
         sentMarks = shift(sentMarks, c.start, c.end, c.len);
         wordMarks = shift(wordMarks, c.start, c.end, c.len);
         labMarks = shift(labMarks, c.start, c.end, c.len);
+        tidyMarks = shift(tidyMarks, c.start, c.end, c.len);
       }
       if (o.sel) sel = { start: mdToVis(o.sel.start), end: mdToVis(o.sel.end), backward: false };
       else if (o.text != null && text !== before.text) {
@@ -1960,6 +2012,12 @@
       return out;
     },
     setLab(list) { labMarks = list && list.length ? list : []; render(); },
+    // What "Tidy with AI" changed, as marks a click can undo.
+    getTidyMarks() { return tidyMarks; },
+    setTidyMarks(list) {
+      tidyMarks = (list || []).filter((m) => m.end > m.start).sort((x, y) => x.start - y.start).filter((m, k, all) => !k || m.start >= all[k - 1].end);
+      render();
+    },
     getLab() { return labMarks; },
     // Visible text of the page, and markdown <-> visible offsets, for things laid over it.
     altRects(id) {

@@ -38,6 +38,7 @@
       TDW.Review.ignoredCount() ? { group: 'Review', label: 'Bring back ignored notes', icon: 'undo', note: String(TDW.Review.ignoredCount()), run: () => { if (!lens) app().setMode('edit'); TDW.Review.restoreIgnored(); }, words: 'unignore restore dismissed hidden x' } : null,
       { group: 'Review', label: 'The Lab', icon: 'flask', keys: K('lab'), note: 'Checks that mark, and Trim', page: 'lab', words: 'lab checks trim cut weak long tone hedges typos' },
 
+      { group: 'Tools', label: 'Tidy with AI', icon: 'spark', desc: 'Fixes grammar and typos, nothing else (AI)', run: () => TDW.Tidy.aiPass(), words: 'grammar proofread typos spelling punctuation clean up fix mistakes gemini' },
       { group: 'Tools', label: 'Alternatives', icon: 'swap', keys: K('alts'), run: () => TDW.Alts.open(), words: 'versions options a/b word sentence paragraph' },
       { group: 'Tools', label: 'Alternatives from AI', icon: 'spark', keys: K('aiAlts'), run: () => TDW.Alts.aiForSelection(), words: 'ai versions gemini' },
       { group: 'Tools', label: 'Ask AI about the selection', icon: 'spark', keys: K('askAI'), run: () => TDW.Notes.compose({ ai: true }), words: 'chat thread gemini', off: !hasSelection() },

@@ -6,6 +6,7 @@ require('./lab.test.js');
 require('./challenges.test.js');
 require('./notion-map.test.js');
 require('./spell.test.js');
+require('./tidy.test.js');
 require('./inline.test.js');
 require('./formats.test.js');
 require('./account-api.test.mjs');
