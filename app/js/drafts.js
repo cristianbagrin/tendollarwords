@@ -29,6 +29,7 @@
   TDW.icons.filter = '<svg class="icon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 4h11M4.5 8h7M6.5 12h3"/></svg>';
   TDW.icons.gear = '<svg class="icon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="2"/><path d="M8 1.8v1.6M8 12.6v1.6M3.6 3.6l1.1 1.1M11.3 11.3l1.1 1.1M1.8 8h1.6M12.6 8h1.6M3.6 12.4l1.1-1.1M11.3 4.7l1.1-1.1"/></svg>';
 
+  let newBtn = null, ideaBtn = null;
   let side = null, scrim = null, listEl = null, findEl = null, findWrap = null, chipsEl = null, pinBtn = null, tabBtns = null, searchBtn = null, viewBtn = null, importEl = null;
   let state = null;          // null | 'peek' (leaves with the pointer) | 'held' (over the page until dismissed) | 'pinned' (beside the page)
   let tab = 'drafts';
@@ -180,9 +181,17 @@
       : el('span', { class: 'dr-twisty is-leaf', 'aria-hidden': 'true' });
     const more = el('button', { type: 'button', class: 'dr-more', 'aria-label': 'More for “' + title + '”', 'aria-haspopup': 'menu' }, icon('more'));
     more.addEventListener('click', (e) => { e.stopPropagation(); rowMenu(more, d); });
-    const li = el('li', { class: 'dr-row' + (is ? ' is-current' : '') + (kids ? ' has-parts' : ''), dataset: { id: d.id }, style: '--depth:' + (o.depth || 0) },
-      el('div', { class: 'dr-line' }, twisty, btn, kids && o.flat ? el('span', { class: 'dr-sub', text: String(kids) }) : null, more),
-      el('div', { class: 'dr-props' }, chips(d)));
+    // A part of a project is one line: its title and a dot for its status (a book of 60
+    // chapters stays short). Its other properties are under ⋯ → Properties.
+    const part = !o.flat && (o.depth || 0) > 0;
+    let dot = null;
+    if (part) {
+      dot = el('button', { type: 'button', class: 'dr-dot s-' + d.status, 'aria-label': 'Status: ' + S_LABEL[d.status] + '. Change' });
+      dot.addEventListener('click', (e) => { e.stopPropagation(); statusMenu(dot, d); });
+    }
+    const li = el('li', { class: 'dr-row' + (is ? ' is-current' : '') + (kids ? ' has-parts' : '') + (part ? ' is-part' : ''), dataset: { id: d.id }, style: '--depth:' + (o.depth || 0) },
+      el('div', { class: 'dr-line' }, twisty, btn, kids && o.flat ? el('span', { class: 'dr-sub', text: String(kids) }) : null, dot, more),
+      part ? null : el('div', { class: 'dr-props' }, chips(d)));
     li.addEventListener('click', () => { if (!suppressClick()) openDraft(d.id); });
     if (o.draggable) li.addEventListener('pointerdown', (e) => armDrag(e, li, d));
     return li;
@@ -249,6 +258,8 @@
     findEl.placeholder = tab === 'ideas' ? 'Find an idea' : 'Find a draft';
     findEl.setAttribute('aria-label', findEl.placeholder);
     viewBtn.hidden = tab !== 'drafts';
+    ideaBtn.hidden = tab === 'ideas';
+    newBtn.replaceChildren(icon(tab === 'ideas' ? 'idea' : 'newDoc'), el('span', { text: tab === 'ideas' ? 'New idea' : 'New draft' }));
     viewBtn.classList.toggle('is-on', view.status.length + view.tags.length > 0 || view.group !== 'tree');
     drawChips();
     const out = [];
@@ -695,7 +706,7 @@
 
   function open(o) {
     const opts = o || {};
-    if (opts.tab && opts.tab !== tab) { tab = opts.tab; query = ''; findEl.value = ''; }
+    if (opts.tab && opts.tab !== tab) { tab = opts.tab; query = ''; findEl.value = ''; listEl.scrollTop = 0; render(); }
     if (narrow()) { setState('held'); return; }
     setState(canPin() ? 'pinned' : 'held');
     remember(true);
@@ -765,9 +776,11 @@
     searchBtn.setAttribute('aria-pressed', 'false');
     viewBtn = tool('filter', 'Group, sort and filter', viewMenu);
     viewBtn.setAttribute('aria-haspopup', 'menu');
-    const foot = el('div', { class: 'dr-foot' },
-      el('button', { type: 'button', class: 'dr-new', onclick: () => newDraft() }, icon('newDoc'), el('span', { text: 'New draft' })),
-      tool('idea', 'Catch an idea', () => { closeIfOver(); TDW.Ideas.capture(); }),
+    const capture = () => { closeIfOver(); TDW.Ideas.capture(); };
+    // The first button makes what the tab lists: a draft, or an idea.
+    newBtn = el('button', { type: 'button', class: 'dr-new', onclick: () => (tab === 'ideas' ? capture() : newDraft()) });
+    ideaBtn = tool('idea', 'Catch an idea', capture);
+    const foot = el('div', { class: 'dr-foot' }, newBtn, ideaBtn,
       searchBtn, viewBtn,
       tool('gear', 'Settings', () => { closeIfOver(); TDW.Dialogs.openSettings(); }));
     side.append(el('div', { class: 'dr' },

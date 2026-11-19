@@ -57,7 +57,7 @@
 
   function applyColor(start, end, color) {
     if (end <= start || app().state.loading) return;
-    if (opaque(start, end)) { UI.toast("Notion blocks like images can't take a color."); return; }
+    if (opaque(start, end)) { UI.toast("Images and embeds can't take a color."); return; }
     if (color) setLast(color);
     const t = text();
     // Line breaks and list markers stay uncolored: color each line's text.
@@ -159,7 +159,7 @@
     const ai = !!(opts && opts.ai);
     const r = range();
     if (r.end <= r.start && ai) { UI.toast('Select some text to ask the AI about.'); return; }
-    if (opaque(r.start, r.end)) { UI.toast("Notion blocks like images can't take notes."); return; }
+    if (opaque(r.start, r.end)) { UI.toast("Images and embeds can't take notes."); return; }
     if (ai && !TDW.Store.getKey() && !TDW.mockAI) {
       UI.toast('Add your Gemini key in Settings to ask the AI.', { label: 'Settings', run: () => app().openSettings('ai') });
       return;

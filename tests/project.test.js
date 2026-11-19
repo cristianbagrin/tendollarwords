@@ -37,7 +37,7 @@ test('a name is the title given, else the first sentence', () => {
   const { Store, P } = browser();
   eq(P.nameOf(Store.create({ title: 'Book', text: 'It begins. Then more.' })), 'Book');
   eq(P.nameOf(Store.create({ text: 'It begins. Then more.' })), 'It begins.');
-  eq(P.nameOf(Store.create({})), 'Untitled draft');
+  eq(P.nameOf(Store.create({})), 'Untitled');
 });
 
 test('the tree shows parts only under open projects, with depth and parent', () => {

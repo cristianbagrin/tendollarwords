@@ -39,7 +39,7 @@
     if (app().state.loading) return;
     const r = ghostRange();
     if (!r) { UI.toast('Select the text to ghost first.'); return; }
-    if (opaque(r.start, r.end)) { UI.toast("Notion blocks like images can't be ghosted."); return; }
+    if (opaque(r.start, r.end)) { UI.toast("Images and embeds can't be ghosted."); return; }
     const revive = isGhosted(r) || (r.end > r.start && Marks.ghostAt(ann(), r.start, r.end) && covered(r));
     const next = revive ? Marks.revive(ann(), r.start, r.end) : Marks.ghost(ann(), r.start, r.end);
     Editor.change({ ann: next, kind: 'marks', sel: { start: r.end, end: r.end } });
@@ -67,7 +67,7 @@
     while (start < end && /\s/.test(t[start])) start++;
     while (end > start && /\s/.test(t[end - 1])) end--;
     if (end <= start) { UI.toast('Select what to stash first.'); return; }
-    if (opaque(start, end)) { UI.toast("Notion blocks like images can't go to Overflow."); return; }
+    if (opaque(start, end)) { UI.toast("Images and embeds can't go to Overflow."); return; }
     const md = t.slice(start, end);
     // Whole lines leave with their line break; part of a line takes one neighboring space.
     const ls = Marks.lineRange(t, start), le = Marks.lineRange(t, end);

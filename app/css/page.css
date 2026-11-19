@@ -32,9 +32,6 @@ html.is-typing .spine:not(:hover):not(:focus-within) :is(.spine-left, .spine-mor
 .spine-title .icon { color: var(--ink-3); width: 14px; height: 14px; }
 @media (hover: hover) and (pointer: fine) { .spine-title:hover, .spine-spend:hover, .spine-more:hover, .spine-sync:hover, .spine-nb:hover { background: var(--hover); } }
 .spine-title:active, .spine-spend:active, .spine-more:active, .spine-nb:active { transform: scale(.97); background: var(--press); }
-.spine-stage { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 8px; border: 0; border-radius: 13px; background: transparent; color: var(--ink-2); font: 500 12px/1 var(--font-ui); white-space: nowrap; transition: background-color 120ms ease; }
-@media (hover: hover) and (pointer: fine) { .spine-stage:hover { background: var(--hover); color: var(--ink); } }
-.stage-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
 .spine-nb {
   display: inline-grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: var(--r-sm);
   background: transparent; color: var(--ink-2);
@@ -217,7 +214,6 @@ html.lens-pre .hl { transition: none; }
 .lab-trim-kept { text-decoration: underline dotted 1.5px var(--ink-3); text-underline-offset: .26em; cursor: pointer; }
 .lab-trim.is-active { background: var(--red-wash); }
 .lab-note-target { background: var(--highlight); }
-.fx-overflow { color: color-mix(in srgb, var(--red) 78%, var(--ink)); background: var(--red-wash); }
 
 /* A pencil bracket in the left gutter beside a hard sentence; a double one when it's very hard. */
 .bracket {
@@ -334,7 +330,6 @@ html.is-dragging-block, html.is-dragging-block * { cursor: grabbing !important; 
 @media (max-width: 1079px) and (pointer: coarse), (max-width: 600px) {
   .spine-title, .spine-spend, .spine-more, .spine-sync, .spine-nb { height: 44px; }
   .spine-more, .spine-sync, .spine-nb { min-width: 44px; }
-  .spine-stage { display: none; }
   .mh-tab, .menu-item { min-height: 44px; }
 }
 

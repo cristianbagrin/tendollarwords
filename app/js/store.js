@@ -129,8 +129,8 @@
     const first = (list.length ? line.slice(list[0].start, list[0].end) : line).trim();
     return first.length > 150 ? first.slice(0, 147).replace(/\s+\S*$/, '') + '…' : first;
   }
-  // Pages that only have a title in Notion keep it until they get some text.
-  const displayTitle = (d) => firstSentence(d.text) || String(d.title || '').trim() || 'Untitled draft';
+  // A title given in the properties wins; otherwise the first sentence names the draft.
+  const displayTitle = (d) => String(d.title || '').trim() || firstSentence(d.text) || 'Untitled';
 
   const pad = (n) => String(n).padStart(2, '0');
   // A day as YYYY-MM-DD, in this device's time zone.

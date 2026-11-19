@@ -144,10 +144,7 @@ a { color: var(--blue); text-underline-offset: 2px; }
 .icon { flex: none; display: block; }
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
-/* Type roles (SF tracking: tighter as it grows) */
-.t-11 { font-size: 11px; letter-spacing: .005em; }
-.t-12 { font-size: 12px; letter-spacing: 0; }
-.t-15 { font-size: 15px; letter-spacing: -.015em; }
+/* Hints */
 .hint { color: var(--ink-2); font-size: 12px; line-height: 1.45; letter-spacing: 0; }
 .hint:empty { display: none; }
 
@@ -274,7 +271,6 @@ input[type="range"], input[type="checkbox"], input[type="radio"] { accent-color:
 .menu-sep { height: 1px; margin: 5px 8px; background: var(--rule); }
 .menu-head { padding: 7px 10px 4px; color: var(--ink-2); font: 600 12px/1.3 var(--font-ui); }
 .menu-form { display: grid; gap: 8px; padding: 8px; min-width: 250px; }
-.menu-form-label { font-weight: 600; }
 .menu-input { height: 34px; }
 .row-end { display: flex; justify-content: flex-end; gap: 6px; }
 

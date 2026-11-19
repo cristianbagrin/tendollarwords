@@ -59,13 +59,12 @@ dialog.as-sheet .grabber::before { content: ""; position: absolute; top: 6px; le
 .pal-empty { padding: 21px 12px; color: var(--ink-2); text-align: center; }
 .pal-foot { flex: none; display: flex; align-items: center; gap: 14px; padding: 9px 16px; border-top: 1px solid var(--rule); color: var(--ink-2); font-size: 12px; font-variant-numeric: tabular-nums; }
 .pal-foot .pal-count { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pal-foot .pal-keys { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
 .palette.as-sheet { margin-top: 0; max-height: 82dvh; height: 82dvh; }
 .palette.as-sheet .pal-search { padding-top: 14px; border-bottom: 0; }
 .palette.as-sheet .pal-search input { height: 44px; padding: 0 12px; border-radius: var(--r-sm); background: var(--canvas); font-size: 16px; }
 .palette.as-sheet .pal-search > .icon { display: none; }
 .palette.as-sheet .pal-row { min-height: 46px; font-size: 15px; }
-.palette.as-sheet .pal-row .keys, .palette.as-sheet .pal-foot .pal-keys { display: none; }
+.palette.as-sheet .pal-row .keys { display: none; }
 
 /* ---------- Drafts and ideas: the sidebar ----------
    Out of sight until the pointer rests on the left edge (it comes over the page as a card and
@@ -169,6 +168,10 @@ html[data-drafts="pinned"] .dr-foot { border-top-color: transparent; }
 .dr-more { flex: none; display: grid; place-items: center; width: 26px; height: 24px; padding: 0; border: 0; border-radius: var(--r-xs); background: transparent; color: var(--ink-3); opacity: 0; transition: opacity 100ms ease; }
 .dr-row:focus-within .dr-more, .dr-more[aria-expanded="true"], .idea-row .dr-more { opacity: 1; }
 .dr-props { display: flex; flex-wrap: wrap; gap: 4px; margin: 1px 0 1px 24px; }
+.dr-row.is-part { padding-top: 2px; padding-bottom: 2px; }
+.dr-dot { flex: none; display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: var(--r-xs); background: transparent; transition: background-color 120ms ease, transform var(--press-t) ease-out; }
+.dr-dot::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
+.dr-dot:active { transform: scale(.9); background: var(--press); }
 .dr-empty { margin: 0; padding: 21px 14px; color: var(--ink-2); list-style: none; }
 .dr-ghost {
   position: fixed; z-index: 90; left: 0; top: 0; max-width: 240px; padding: 5px 10px; border-radius: var(--r-sm); pointer-events: none;
@@ -179,7 +182,7 @@ html.is-dragging-draft, html.is-dragging-draft * { cursor: grabbing !important; 
 @media (hover: hover) and (pointer: fine) {
   .dr-row:hover { background: var(--hover); }
   .dr-row:hover .dr-more { opacity: 1; }
-  .dr-more:hover, .dr-twisty:hover, .dr-group:hover { background: var(--hover); color: var(--ink); }
+  .dr-more:hover, .dr-twisty:hover, .dr-group:hover, .dr-dot:hover { background: var(--hover); color: var(--ink); }
 }
 @media (hover: none) { .dr-more { opacity: 1; } }
 
@@ -300,6 +303,8 @@ html.is-dragging-draft, html.is-dragging-draft * { cursor: grabbing !important; 
   .dr-title { font-size: 16.5px; }
   .dr-twisty { width: 30px; height: 32px; }
   .dr-more { width: 36px; height: 32px; }
+  .dr-dot { width: 32px; height: 32px; }
+  .dr-row.is-part { padding-top: 4px; padding-bottom: 4px; }
   .dr-props { margin-left: 32px; }
   .chip { height: 26px; font-size: 12.5px; }
   .dr-group { height: 32px; font-size: 13px; }

@@ -274,7 +274,6 @@ html.has-cards .margin-panel { bottom: 34vh; }
 .ch-error { color: var(--red); font-size: 12.5px; }
 .ch-stamp { justify-self: start; padding: 4px 9px; border: 1.5px solid var(--red); border-radius: var(--r-xs); color: var(--red); font: 700 12px/1 var(--font-ui); transform: rotate(-3deg); animation: stamp var(--spring-t) var(--spring); }
 @keyframes stamp { 0% { opacity: 0; transform: rotate(-9deg) scale(2.1); } 55% { opacity: 1; transform: rotate(-2deg) scale(.94); } 100% { transform: rotate(-3deg) scale(1); } }
-.ch-topic-row { display: flex; gap: 6px; }
 
 /* Trim and the Lab */
 .trim-line { display: flex; align-items: baseline; gap: 8px; font-variant-numeric: tabular-nums; }

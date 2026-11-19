@@ -169,7 +169,7 @@
       return [pad(
         el('div', { class: 'st-who' },
           el('span', { class: 'st-disc' }, glyph('cloud')),
-          el('div', { class: 'st-who-text' }, el('h3', { text: up ? 'Make your account' : 'Sync your writing' }), el('p', { text: 'Settings, key and dictionary on every device.' })),
+          el('div', { class: 'st-who-text' }, el('h3', { text: up ? 'Make your account' : 'Sync your writing' }), el('p', { text: 'Your drafts, ideas and settings on every device.' })),
           help(['Your cristianbagrin.com account: the same one as Chinese Brain and Money in Order.', 'Everything is encrypted on this device before it syncs. Without an account, everything stays in this browser.'], 'About accounts')),
         f, status)];
     }

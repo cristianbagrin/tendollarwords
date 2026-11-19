@@ -287,7 +287,7 @@
     loadingCount = Math.max(0, loadingCount + (on ? 1 : -1));
     state.loading = loadingCount > 0;
     Editor.setReadOnly(state.loading);
-    Editor.setPlaceholder(state.loading ? 'Loading from Notion…' : PLACEHOLDER);
+    Editor.setPlaceholder(state.loading ? 'Loading…' : PLACEHOLDER);
     if (on) {
       Editor.setText('');
       state.words = 0;
