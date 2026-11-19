@@ -59,6 +59,7 @@
     sheet.append(el('div', { class: 'grabber', 'aria-hidden': 'true' }),
       el('div', { class: 'idea-field' }, icon('idea'), input, done), caughtEl);
     document.body.append(sheet);
+    TDW.Drafts.tapOutside(sheet);
   }
 
   // Open the capture sheet (and, given text, put it in).

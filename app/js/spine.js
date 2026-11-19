@@ -1,18 +1,17 @@
-/* The spine: a slim line that never hides. Left, the draft's title (the drafts switcher) and its
-   Notion stage; right, what the words have cost in red pencil (click: the tally and budget), a
-   sync dot when Notion is connected, and ⋯ for the command palette. It recedes while you type. */
+/* The spine: a slim line that never hides. Left, the sidebar button, the projects a part sits in
+   (Book › Chapter 3) and the draft's title (its properties); right, what the words have cost in
+   red pencil (click: the tally and budget), a dot when sync needs you, and ⋯ for the command
+   palette. It recedes while you type. */
 (function () {
   'use strict';
   const TDW = window.TDW = window.TDW || {};
-  const { UI, Store, Sync, Engine, Editor, Inline } = TDW;
+  const { UI, Store, Engine, Editor, Inline } = TDW;
   const { el, icon, money, plural } = UI;
   const app = () => TDW.App;
   const $ = (id) => document.getElementById(id);
 
   const PRESETS = [500, 1000, 2000, 3000, 8000, 15000];
   const PRESET_NOTE = { 500: 'an X post', 1000: 'a short LinkedIn post', 2000: 'a LinkedIn post', 3000: 'a long post or thread', 8000: 'a newsletter', 15000: 'an essay' };
-  const SYNC_TEXT = { syncing: 'Syncing with Notion', synced: 'Synced with Notion', offline: 'Offline: changes wait', error: 'Notion sync stopped', 'other-tab': 'Syncing in another tab' };
-  const COLORS = { gray: '#787774', brown: '#9f6b53', orange: '#d9730d', yellow: '#cb912f', green: '#448361', blue: '#337ea9', purple: '#9065b0', pink: '#c14c8a', red: '#d44c47' };
 
   let shown = null, tween = null, nbBtn = null, saveErr = false, refundEl = null, refundSum = 0, refundAt = 0;
 
@@ -33,18 +32,6 @@
     return t.words.toLocaleString() + ' ' + plural(t.words, 'word', 'words') + ', ' + t.chars.toLocaleString() + ' ' + plural(t.chars, 'character', 'characters') + ', ' + t.read + ' to read';
   }
 
-  /* ---------- The stage: the draft's first status or select property ---------- */
-  function stageOf(d) {
-    const c = Sync.config();
-    if (!c || !c.schema || !d || d.localOnly) return null;
-    const names = Object.keys(c.schema);
-    const name = names.find((n) => c.schema[n].type === 'status') || names.find((n) => c.schema[n].type === 'select');
-    if (!name) return null;
-    const v = d.props && d.props[name];
-    if (!v || typeof v !== 'string') return null;
-    return { name, value: v, color: (c.schema[name].colors || {})[v] || 'gray' };
-  }
-
   /* ---------- Drawing ---------- */
   function drawAmount(n) {
     $('spine-spend').querySelector('.spend-amt').textContent = money(n);
@@ -53,21 +40,20 @@
   function render() {
     const d = app().state.draft;
     if (!d) return;
-    const title = Store.displayTitle(d);
+    const title = TDW.Project ? TDW.Project.nameOf(d) : Store.displayTitle(d);
     const empty = !d.text.trim() && !d.title.trim();
     const t = $('spine-title').querySelector('.spine-title-text');
     t.textContent = empty ? 'Untitled' : title;
     $('spine-title').classList.toggle('is-untitled', empty);
-    $('spine-title').setAttribute('aria-label', 'Drafts. Open: ' + (empty ? 'Untitled' : title));
+    $('spine-title').setAttribute('aria-label', (empty ? 'Untitled' : title) + '. Properties');
     document.title = (empty ? 'Untitled' : title) + ' - Ten Dollar Words';
-
-    const st = stageOf(d);
-    const stage = $('spine-stage');
-    stage.hidden = !st;
-    if (st) {
-      stage.replaceChildren(el('span', { class: 'stage-dot', style: 'background:' + (COLORS[st.color] || COLORS.gray) }), el('span', { text: st.value }));
-      stage.dataset.prop = st.name;
-      stage.setAttribute('aria-label', st.name + ': ' + st.value + '. Change');
+    // A part of a project: the projects holding it, each a way back (Book › Chapter 3).
+    const crumbs = $('spine-crumbs');
+    if (crumbs) {
+      const up = Store.ancestors(d.id).reverse();
+      crumbs.hidden = !up.length;
+      crumbs.replaceChildren(...up.map((a) => el('button', { type: 'button', class: 'crumb', onclick: () => app().openDraft(a.id) },
+        el('span', { class: 'crumb-text', text: TDW.Project ? TDW.Project.nameOf(a) : Store.displayTitle(a) }))));
     }
     nbBtn.hidden = !app().backspaceOff(d);
 
@@ -93,17 +79,17 @@
     if ($('tally').open) drawTally();
   }
 
+  // Sync through the account shows here only when it needs you: stopped, or offline.
+  const SYNC_TEXT = { error: 'Sync stopped', offline: 'Offline. Changes wait here' };
+  const syncStatus = () => (TDW.ItemsSync ? TDW.ItemsSync.status() : { state: 'off' });
   function renderSync() {
     const b = $('spine-sync');
-    const s = Sync.status();
-    if (TDW.Drafts) TDW.Drafts.renderSync();
-    // The drafts sidebar has the sync button; here a dot shows only when sync needs you.
-    const show = Sync.isConnected() && (s.state === 'error' || s.state === 'offline');
+    const s = syncStatus();
+    const show = s.state === 'error' || s.state === 'offline';
     b.hidden = !show;
     if (!show) return;
-    b.dataset.state = s.state || 'synced';
-    const label = (SYNC_TEXT[s.state] || 'Notion') + (s.at ? ', last sync ' + UI.relTime(s.at) : '');
-    b.setAttribute('aria-label', label);
+    b.dataset.state = s.state;
+    b.setAttribute('aria-label', SYNC_TEXT[s.state] + (s.at ? ', last synced ' + UI.relTime(s.at) : ''));
   }
 
   // Words just cut: the saving rises off the amount and fades.
@@ -176,31 +162,25 @@
     if (on && !UI.isNarrow()) on.focus({ preventScroll: true });
   }
 
-  const plainName = (t) => String(t || '').replace(/[\p{Extended_Pictographic}\u200d\ufe0f]/gu, '').replace(/\s+/g, ' ').trim();
 
   function syncMenu() {
-    const s = Sync.status();
-    const c = Sync.config();
+    const s = syncStatus();
     const items = [
-      { type: 'head', label: (SYNC_TEXT[s.state] || 'Notion') + (c ? ': ' + plainName(c.dbTitle) : '') },
+      { type: 'head', label: SYNC_TEXT[s.state] || 'Synced' },
       s.message ? { type: 'head', label: s.message } : null,
-      { label: s.at ? 'Last sync ' + UI.relTime(s.at) : 'Not synced yet', value: 'none', icon: 'sync' },
-      { type: 'sep' },
-      { label: 'Notion settings', value: 'settings', icon: 'sliders' }
+      { label: 'Try again', value: 'now', icon: 'sync' },
+      { label: 'Account', value: 'settings', icon: 'user' }
     ];
-    UI.menu($('spine-sync'), items, (it) => { if (it.value === 'settings') TDW.Dialogs.openSettings('notion'); return it.value === 'none'; }, null, null, { align: 'end' });
+    UI.menu($('spine-sync'), items, (it) => { if (it.value === 'settings') TDW.Dialogs.openSettings('account'); else if (TDW.ItemsSync) TDW.ItemsSync.syncNow(); }, null, null, { align: 'end' });
   }
 
   function init() {
-    $('spine-title').append(icon('chevDown'));
     $('spine-more').append(icon('more'));
     nbBtn = el('button', { type: 'button', class: 'spine-nb', hidden: true, 'aria-label': 'No backspace is on. Turn it off' }, icon('backspace'));
     nbBtn.addEventListener('click', () => app().setBackspaceOff(false));
-    $('spine-stage').after(nbBtn);
+    $('spine-title').after(nbBtn);
     for (const b of [$('spine-title'), $('spine-spend'), $('spine-more'), $('spine-sync'), nbBtn]) b.addEventListener('mousedown', (e) => e.preventDefault());
-    $('spine-title').addEventListener('click', () => TDW.Drafts.toggle());
-    $('spine-stage').addEventListener('mousedown', (e) => e.preventDefault());
-    $('spine-stage').addEventListener('click', () => { const d = app().state.draft; if (d && $('spine-stage').dataset.prop) TDW.Drafts.editProp($('spine-stage'), d, $('spine-stage').dataset.prop); });
+    $('spine-title').addEventListener('click', () => TDW.Drafts.openProps(app().state.draft, { anchor: $('spine-title') }));
     $('spine-spend').addEventListener('click', openTally);
     $('spine-more').addEventListener('click', () => TDW.Palette && TDW.Palette.toggle());
     $('spine-sync').addEventListener('click', syncMenu);

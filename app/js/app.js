@@ -4,7 +4,7 @@
 (function () {
   'use strict';
   const TDW = window.TDW;
-  const { Engine, Editor, UI, Store, Sound, Dialogs, Spell, Sync, Formats, Account, Marks } = TDW;
+  const { Engine, Editor, UI, Store, Sound, Dialogs, Spell, Sync, Formats, Marks } = TDW;
   const opt = (name) => TDW[name] || null;
 
   const APP_VERSION = '4.1.0';
@@ -157,10 +157,8 @@
     return false;
   }
 
-  function syncEdit() {
-    const d = state.draft;
-    if (d && !d.localOnly && Sync.isConnected()) Sync.noteEdit(d.id);
-  }
+  // Items sync picks every save up by itself (items-sync.js); kept for the modules that call it.
+  function syncEdit() {}
 
   /* ---------- Undo for what isn't typing ----------
      ⌘Z walks back through the text (the editor's own history) and through what was done to the
@@ -250,11 +248,10 @@
     if (from === to) return;
     const anchor = captureAnchor();
     const was = { format: from.key, budget: d.budget };
-    did('format', () => { if (state.draft !== d) return; setFormat(was.format); d.budget = was.budget; Store.saveDraft(d); Account.noteDraft(d); refreshPanel(); });
+    did('format', () => { if (state.draft !== d) return; setFormat(was.format); d.budget = was.budget; Store.saveDraft(d); refreshPanel(); });
     if (d.budget === Formats.budgetOf(from, state.settings)) d.budget = Formats.budgetOf(to, state.settings);
     d.format = to.key;
     Store.saveDraft(d);
-    Account.noteDraft(d);
     applyFormat();
     if (state.mode === 'edit') refresh(); else refreshPanel();
     restoreAnchor(anchor);
@@ -299,7 +296,7 @@
   }
 
   function dropIfEmpty(d) {
-    if (!d || d.notionId || d.text.trim() || d.title.trim() || Store.getDraft(d.id) !== d) return;
+    if (!d || d.notionId || d.text.trim() || d.title.trim() || Store.getDraft(d.id) !== d || Store.children(d.id).length) return;
     Store.deleteDraft(d.id);
   }
 
@@ -312,7 +309,7 @@
     state.draft = d;
     state.dirty = false;
     Store.setOpen(d.id);
-    await Sync.prepare(d);
+    await Promise.resolve();
     if (seq !== openSeq || Store.getDraft(d.id) !== d) return;
     loadDraft(d);
   }
@@ -335,8 +332,9 @@
     else newDraft('');
   }
 
-  function draftDeleted(id) {
-    if (!state.draft || state.draft.id !== id) return;
+  // The open draft was deleted (with `any`: whichever draft is open, say a part of a deleted project).
+  function draftDeleted(id, any) {
+    if (!state.draft || (state.draft.id !== id && !any)) return;
     clearTimeout(saveTimer);
     state.dirty = false;
     state.draft = null;
@@ -351,7 +349,6 @@
     state.draft.budget = v;
     markDirty();
     saveNow();
-    Account.noteDraft(state.draft);
     refreshPanel();
   }
 
@@ -359,24 +356,26 @@
     state.draft.intent = text;
     markDirty();
     saveNow();
-    Account.noteDraft(state.draft);
   }
 
-  function setProp(d, name, value) {
-    const was = d.props[name];
-    did(name, () => { if (Store.getDraft(d.id) === d) { setProp(d, name, was); if (TDW.Drafts) TDW.Drafts.render(); } }, null);
-    d.props[name] = value;
-    const c = Sync.config();
-    const t = c && c.schema && c.schema[name] && c.schema[name].type;
-    if (t === 'status' || t === 'select') d.nb = null; // a new stage decides backspace again
-    Store.saveDraft(d);
-    Account.noteDraft(d);
-    Sync.noteProp(d.id, name);
+  /* A draft's own properties: { status, date, tags, title, format }. ⌘Z takes the change back.
+     A new status decides No backspace again. */
+  function setFields(d, patch) {
+    if (!d || !Store.getDraft(d.id)) return;
+    if (d === state.draft) saveNow();
+    const p = Object.assign({}, patch);
+    if ('status' in p && p.status !== d.status) p.nb = null;
+    const was = {};
+    for (const k of Object.keys(p)) was[k] = JSON.parse(JSON.stringify(d[k] === undefined ? null : d[k]));
+    const label = Object.keys(patch).join(', ');
+    did(label, () => { if (Store.getDraft(d.id) === d) { setFields(d, was); if (TDW.Drafts) TDW.Drafts.render(); } }, null);
+    Store.update(d.id, p);
     if (d === state.draft) { updateBackspace(); refreshPanel(); }
+    if (TDW.Project && state.draft && d.parentId === state.draft.id) TDW.Project.render();
   }
 
   // Every module the app hands the open draft to, in the order they set up.
-  const MODULES = ['Spine', 'Margin', 'Review', 'Alts', 'Menu', 'Overflow', 'Lab', 'Challenges', 'Desk', 'Blocks', 'Bubble', 'Notes', 'Links', 'Bench', 'Palette'];
+  const MODULES = ['Spine', 'Margin', 'Review', 'Alts', 'Menu', 'Overflow', 'Lab', 'Challenges', 'Desk', 'Blocks', 'Bubble', 'Notes', 'Links', 'Bench', 'Palette', 'Project', 'Ideas'];
   function each(fn) { for (const n of MODULES) { const m = opt(n); if (m) try { fn(m); } catch (e) { console.error(n, e); } } }
   function spine(fn, arg) { const s = opt('Spine'); if (s && s[fn]) s[fn](arg); }
 
@@ -427,6 +426,7 @@
   function onList() {
     if (Dialogs.isDraftsOpen()) Dialogs.renderDraftList();
     if (!state.draft || state.loading) return;
+    if (opt('Project')) { TDW.Project.forget(); TDW.Project.render(); }
     updateBackspace();
     refreshPanel();
   }
@@ -442,7 +442,7 @@
       state.dirty = false;
       state.draft = null;
       openNewest();
-      UI.toast('“' + Store.displayTitle(d) + '” was deleted in Notion.');
+      UI.toast('“' + Store.displayTitle(d) + '” was deleted on another device.');
     }
     onList();
   }
@@ -473,7 +473,6 @@
   /* ---------- Account ---------- */
   function onAccountApplied(ch) {
     if (ch.settings) reloadSettings();
-    if (ch.notion) Sync.adopt(ch.notion.prev);
     const d = state.draft;
     if (d && ch.drafts.includes(d) && !state.loading) {
       if (d.text === Editor.getText() && !state.dirty) Editor.setAnnotations(d.ann);
@@ -575,15 +574,8 @@
   /* ---------- No backspace ---------- */
   let blockWarned = false;
 
-  function stageSaysNo(d) {
-    const c = Sync.config();
-    const schema = (c && c.schema) || {};
-    return Object.keys(d.props || {}).some((name) => {
-      const t = schema[name] && schema[name].type;
-      const v = d.props[name];
-      return (!t || t === 'select' || t === 'status') && typeof v === 'string' && /no backspace/i.test(v);
-    });
-  }
+  // A draft still being drafted is written forward: No backspace turns on by itself (a setting).
+  const stageSaysNo = (d) => !!d && d.status === 'drafting';
 
   function backspaceOff(d) {
     if (!d) return false;
@@ -603,10 +595,9 @@
     const d = state.draft;
     if (!d) return;
     const wasNb = d.nb;
-    did('no backspace', () => { if (state.draft !== d) return; d.nb = wasNb; Store.saveDraft(d); Account.noteDraft(d); updateBackspace(); });
+    did('no backspace', () => { if (state.draft !== d) return; d.nb = wasNb; Store.saveDraft(d); updateBackspace(); });
     d.nb = on === (state.settings.noBackspace && stageSaysNo(d)) ? null : on;
     Store.saveDraft(d);
-    Account.noteDraft(d);
     blockWarned = false;
     updateBackspace();
     Editor.focus();
@@ -681,7 +672,7 @@
     TDW.Keys.on('review', () => toggleLens());
     TDW.Keys.on('save', () => {
       state.dirty = state.dirty || !!state.draft;
-      if (saveNow()) UI.toast(Sync.isConnected() ? 'Saved, syncing to Notion' : 'Saved');
+      if (saveNow()) UI.toast('Saved');
     });
   }
 
@@ -764,7 +755,7 @@
     Store.setBusyCheck(() => state.dirty);
     Store.onExternal(onExternal);
     Sync.init({ onRemoteText, onRemoteDelete, onList, onStatus: () => spine('renderSync'), onLoading, current: () => state.draft });
-    Account.init({ onApplied: onAccountApplied, onSignedOut, onRecoveryKey: () => Dialogs.showRecoveryKey() });
+    TDW.Account.init({ onApplied: onAccountApplied, onSignedOut, onRecoveryKey: () => Dialogs.showRecoveryKey() });
 
     const lastId = Store.getLast();
     const first = (lastId && Store.getDraft(lastId)) || Store.listDrafts()[0] || null;
@@ -773,8 +764,11 @@
 
     setMode('write');
     wire();
-    if (Sync.isConnected()) Sync.start();
     spine('renderSync');
+    // Notion pages from the old sync that haven't come in yet: one quiet offer.
+    if (TDW.NotionImport && TDW.NotionImport.needed()) {
+      setTimeout(() => UI.toast('Some Notion pages aren’t here yet.', { label: 'Import', run: () => TDW.Drafts.open({ tab: 'drafts' }) }), 1200);
+    }
 
     if (location.protocol === 'https:' && 'serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(() => {});
@@ -796,7 +790,7 @@
     state, APP_VERSION, SAMPLE_TEXT, masked, publishText, insertAtCaret, refresh, captureAnchor, restoreAnchor,
     noBackspace: () => noBackspace(), markDirty, syncEdit, updateAids,
     setMode, toggleLens, saveNow, openDraft, newDraft, draftDeleted, analyze, setFormat,
-    updateSettings, toggleHighlight, hiddenTypes, setBudget, setIntent, setProp, edit, cut, insertSample,
+    updateSettings, toggleHighlight, hiddenTypes, setBudget, setIntent, setFields, edit, cut, insertSample,
     addWord, removeWord, refreshPanel, updateSyncStatus: () => spine('renderSync'), openSettings: (section) => Dialogs.openSettings(section),
     syncChanged() { onList(); spine('renderSync'); },
     setBackspaceOff, countNow, backspaceOff, themeSetting, fontOf, did

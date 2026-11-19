@@ -95,7 +95,8 @@
     x.addEventListener('click', hide);
     bar = el('div', { id: 'bench', class: 'bench', role: 'toolbar', 'aria-label': 'Bench' },
       fmtBtn, el('span', { class: 'bench-sep', 'aria-hidden': 'true' }),
-      reviewBtn, labBtn, trimBtn, diceBtn, tool('send', 'Post', postMenu), x);
+      reviewBtn, labBtn, trimBtn, diceBtn, tool('send', 'Post', postMenu),
+      el('span', { class: 'bench-sep', 'aria-hidden': 'true' }), tool('idea', 'Catch an idea', () => TDW.Ideas.capture()), x);
     document.body.append(bar);
   }
 

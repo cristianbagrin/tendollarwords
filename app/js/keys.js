@@ -18,6 +18,7 @@
     ['palette', 'The page', 'Commands', '⌘K', null, 'any'],
     ['drafts', 'The page', 'Drafts', '⌘O'],
     ['newDraft', 'The page', 'New draft', '⌘⌥N'],
+    ['idea', 'The page', 'Catch an idea', '⌘⇧I', '⌘⌥I', 'any'],
     ['settings', 'The page', 'Settings', '⌘,'],
     ['save', 'The page', 'Save now', '⌘S', null, 'any'],
     ['shortcuts', 'The page', 'Shortcuts', 'F12', '⌘⇧/', 'any'],

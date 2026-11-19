@@ -21,16 +21,17 @@
   <link rel="stylesheet" href="css/settings.css?v=4.1.0">
 </head>
 <body>
-  <!-- Drafts: a sidebar that comes over from the left edge (a sheet on a phone). -->
+  <!-- Drafts and ideas: a sidebar that comes over from the left edge (a drawer on a phone). -->
   <div id="drafts-edge" class="drafts-edge" aria-hidden="true"></div>
   <aside id="drafts" class="drafts" aria-labelledby="drafts-title"></aside>
   <!-- The spine: the draft on the left, what it has cost on the right, and the command palette. -->
   <header id="spine" class="spine">
     <div class="spine-left">
-      <button id="spine-title" class="spine-title" type="button" aria-controls="drafts" aria-expanded="false">
+      <button id="spine-drafts" class="spine-drafts" type="button" aria-controls="drafts" aria-expanded="false" aria-label="Drafts and ideas"></button>
+      <span id="spine-crumbs" class="spine-crumbs" hidden></span>
+      <button id="spine-title" class="spine-title" type="button" aria-haspopup="dialog">
         <span class="spine-title-text">Untitled</span>
       </button>
-      <button id="spine-stage" class="spine-stage" type="button" aria-haspopup="menu" hidden></button>
     </div>
     <div class="spine-right">
       <span id="spine-notes" class="spine-notes" hidden></span>
@@ -54,6 +55,8 @@
         <div id="chips" class="chips"></div>
         <div id="margin" class="margin" aria-label="Margin"></div>
       </div>
+      <!-- A project's parts, under its text. -->
+      <section id="parts" class="parts" aria-label="Parts" hidden></section>
     </div>
   </main>
 
@@ -63,7 +66,6 @@
   <div id="margin-foot" class="margin-foot" aria-live="polite"></div>
 
   <dialog id="palette" class="palette" aria-label="Commands"></dialog>
-  <dialog id="drafts-dialog" class="drafts-sheet" aria-label="Drafts"></dialog>
   <dialog id="settings-dialog" class="settings" aria-labelledby="settings-title"></dialog>
   <dialog id="tally" class="tally" aria-label="Spend and budget"></dialog>
   <dialog id="margin-sheet" class="margin-sheet"></dialog>
@@ -97,6 +99,8 @@
   <script src="js/spine.js?v=4.1.0"></script>
   <script src="js/margin.js?v=4.1.0"></script>
   <script src="js/review.js?v=4.1.0"></script>
+  <script src="js/project.js?v=4.1.0"></script>
+  <script src="js/ideas.js?v=4.1.0"></script>
   <script src="js/drafts.js?v=4.1.0"></script>
   <script src="js/dialogs.js?v=4.1.0"></script>
   <script src="js/alts.js?v=4.1.0"></script>

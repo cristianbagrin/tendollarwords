@@ -47,7 +47,6 @@
   function save() {
     if (!draft) return;
     if (app()) app().markDirty();
-    if (TDW.Account && TDW.Account.noteDraft) TDW.Account.noteDraft(draft);
   }
 
   function elapsed(c) { return Math.max(0, Date.now() - (c.startedAt || Date.now())); }

@@ -496,7 +496,7 @@
   function openProps(d, o) {
     if (!d) return;
     const opts = o || {};
-    if (!props) { props = el('dialog', { class: 'props', 'aria-label': 'Properties' }); document.body.append(props); }
+    if (!props) { props = el('dialog', { class: 'props', 'aria-label': 'Properties' }); document.body.append(props); tapOutside(props); }
     const isOpen = () => app().state.draft === d;
     const title = el('input', { type: 'text', class: 'props-title', placeholder: Store.firstSentence(d.text) || 'Untitled', 'aria-label': 'Title', autocomplete: 'off', enterkeyhint: 'done', value: d.title });
     let tTimer = 0;
@@ -529,7 +529,6 @@
           afterMove(d, was);
         }
         drawProj();
-        if (props.open) setTimeout(() => present(props, { anchor: opts.anchor && !TDW.UI.isNarrow() ? opts.anchor : null }));
       });
     });
     const fmtBtn = el('button', { type: 'button', class: 'props-pick', 'aria-haspopup': 'menu' });
@@ -553,6 +552,16 @@
     props._onDismiss = () => { saveTitle(); render(); if (isOpen()) TDW.Editor.focus(); };
     if (!TDW.UI.device.touch) title.focus({ preventScroll: true });
     else props.focus();
+  }
+
+  /* A tap beside a sheet puts it away, even with its field focused. (Dialogs in general wait
+     while a field has the keyboard, for iOS's password panels; these sheets hold no passwords.) */
+  function tapOutside(dlg) {
+    dlg.addEventListener('click', (e) => {
+      if (e.target !== dlg) return;
+      const r = dlg.getBoundingClientRect();
+      if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) dismiss(dlg);
+    });
   }
 
   /* ---------- Actions ---------- */
@@ -899,6 +908,7 @@
   TDW.Drafts = {
     init, open, close, toggle, isOpen, isPinned, render, newDraft, openProps, pick, tagMenu, moveTo,
     expand: (id) => setOpenRow(id, true),
+    tapOutside,
     renderSync() {} // the spine shows sync now
   };
 })();

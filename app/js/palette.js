@@ -29,9 +29,15 @@
     const ch = C && C.info ? C.info() : null;
     const out = [
       { group: 'Draft', label: 'New draft', icon: 'newDoc', keys: K('newDraft'), run: () => TDW.Dialogs.newDraft(), words: 'create blank start' },
-      { group: 'Draft', label: 'Drafts', icon: 'drafts', keys: K('drafts'), run: () => TDW.Drafts.toggle(), words: 'switch open list notion stage find sidebar' },
+      { group: 'Draft', label: 'Drafts', icon: 'drafts', keys: K('drafts'), run: () => TDW.Drafts.open({ tab: 'drafts' }), words: 'switch open list find sidebar projects' },
+      { group: 'Draft', label: 'Properties', icon: 'sliders', run: () => TDW.Drafts.openProps(d), words: 'status date tags title project format' },
+      d ? { group: 'Draft', label: 'New part', icon: 'plus', run: () => TDW.Project.newPart(d.id), words: 'chapter section project book subpage' } : null,
+      d ? { group: 'Draft', label: 'Move to…', icon: 'turn', run: () => TDW.Drafts.moveTo(d, document.getElementById('spine-title')), words: 'project book chapter into parent' } : null,
+      d && TDW.Store.children(d.id).length ? { group: 'Draft', label: 'Read as one', icon: 'book', run: () => TDW.Project.read(d.id), words: 'manuscript book whole project export copy markdown' } : null,
       { group: 'Draft', label: 'Budget and word count', icon: 'dollar', run: () => TDW.Spine.openTally(), words: 'money spend words characters reading time grade' },
       { group: 'Draft', label: 'No backspace', icon: 'backspace', state: nb ? 'On' : 'Off', on: nb, run: () => app().setBackspaceOff(!nb), words: 'delete forward only write' },
+      { group: 'Ideas', label: 'Catch an idea', icon: 'idea', keys: K('idea'), run: () => TDW.Ideas.capture(), words: 'new idea note capture inbox' },
+      { group: 'Ideas', label: 'Ideas', icon: 'idea', run: () => TDW.Drafts.open({ tab: 'ideas' }), words: 'list inbox captured' },
 
       { group: 'Review', label: lens ? 'Stop reviewing' : 'Review this draft', icon: 'pencil', keys: K('review'), run: () => app().toggleLens(), words: 'edit mode fixes lens grade marks' },
       { group: 'Review', label: 'Check the message', icon: 'target', desc: 'What a busy reader takes away (AI)', run: () => { if (!lens) app().setMode('edit'); TDW.Review.startMessage(); }, words: 'ai takeaway gemini' },
