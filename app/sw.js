@@ -2,7 +2,7 @@
    The account API (/api/) always goes to the network.
    Pages ask for files with ?v=…; the precache stores them without it, so offline lookups ignore the query.
    The app's page is /dashboard (the Worker serves app/index.html there); / is the website. */
-const VERSION = 'tdw-4.1.0';
+const VERSION = 'tdw-5.0.0';
 const FONT_CACHE = 'tdw-fonts';
 const FONT_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
 const PRECACHE = [
