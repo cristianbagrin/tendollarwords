@@ -1,12 +1,12 @@
 /* Service worker: precache the app, network-first for app files, cache-first for Google Fonts.
    The account API (/api/) always goes to the network.
    Pages ask for files with ?v=…; the precache stores them without it, so offline lookups ignore the query.
-   The page is precached as './' only: the host answers index.html with a redirect to /. */
+   The app's page is /dashboard (the Worker serves app/index.html there); / is the website. */
 const VERSION = 'tdw-4.1.0';
 const FONT_CACHE = 'tdw-fonts';
 const FONT_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
 const PRECACHE = [
-  './', 'manifest.webmanifest', 'css/base.css', 'css/page.css', 'css/margin.css', 'css/surfaces.css',
+  '/dashboard', 'manifest.webmanifest', 'css/base.css', 'css/page.css', 'css/margin.css', 'css/surfaces.css',
   'js/marks.js', 'js/alts.js', 'js/menu.js', 'js/overflow.js', 'js/lab.js', 'js/challenges.js', 'js/challenge-ui.js', 'js/desk.js', 'js/blocks.js', 'js/notes.js', 'js/bubble.js',
   'js/keys.js', 'js/links.js', 'js/fx.js', 'js/bench.js', 'js/data.js', 'js/inline.js', 'js/engine.js', 'js/spell.js', 'js/notion-map.js', 'js/sound.js', 'js/store.js', 'js/ai.js',
   'js/ai-mock.js', 'js/notion.js', 'js/sync.js', 'js/vault.js', 'js/account-keyring.js', 'js/keyring.js', 'js/account.js', 'js/editor.js', 'js/ui.js', 'js/formats.js',
@@ -39,7 +39,8 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  if (url.origin !== self.location.origin || url.pathname.startsWith('/api/')) return; // the account is never cached
+  // The account is never cached; /edit is Chris's page editor.
+  if (url.origin !== self.location.origin || url.pathname.startsWith('/api/') || url.pathname.startsWith('/edit')) return;
   event.respondWith(fetch(req).then((res) => {
     if (res.ok) {
       const copy = res.clone();
@@ -48,5 +49,5 @@ self.addEventListener('fetch', (event) => {
     return res;
   }).catch(() => caches.match(req) // the exact version first, then any copy of the file
     .then((hit) => hit || caches.match(req, { ignoreSearch: true }))
-    .then((hit) => hit || caches.match('./'))));
+    .then((hit) => hit || (req.mode === 'navigate' && url.pathname === '/dashboard' ? caches.match('/dashboard') : undefined))));
 });

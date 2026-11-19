@@ -1,4 +1,7 @@
 // One Worker: app/ as static assets (app/_headers included), and /api/* in worker/index.mjs.
+// The website is app/site/ (served at /, /how-it-works, /privacy, /whats-new with Chris's edits from /edit
+// put in: worker/site.mjs); the app is app/index.html, served at /dashboard.
+// Deploy needs: `npx wrangler secret put EDIT_KEY` (the /edit password, as on cristianbagrin.com).
 // The encrypted synced documents (and the old accounts, kept for the move) live in the D1 database bound as DB (schema: migrations/).
 {
   "$schema": "node_modules/wrangler/config-schema.json",
@@ -11,9 +14,15 @@
   "assets": {
     "directory": "./app",
     "binding": "ASSETS",
-    // The account API runs before any file lookup. Everything else is a file from app/.
-    "run_worker_first": ["/api/*"]
+    // "none": a file is served only at its own name, so /index.html is the app's file (served at /dashboard)
+    // and "/" is free for the website.
+    "html_handling": "none",
+    // The account API, the website's pages, /edit and /dashboard run before any file lookup. Everything else is a file from app/.
+    "run_worker_first": ["/api/*", "/", "/how-it-works", "/privacy", "/whats-new", "/dashboard", "/dashboard/", "/edit", "/edit/*", "/index.html", "/site/*.html"]
   },
+  // Chris's edits to the website's words (worker/site.mjs).
+  "durable_objects": { "bindings": [{ "name": "COPY", "class_name": "Copy" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Copy"] }],
   "d1_databases": [
     {
       "binding": "DB",

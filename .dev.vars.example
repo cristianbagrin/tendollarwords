@@ -7,3 +7,6 @@
 DEV_ACCOUNT_API=http://127.0.0.1:8790/api/
 # TDW_LEGACY_SIGNUP=1 reopens old-style sign-ups, to make an old account and test the move.
 # TDW_LEGACY_SIGNUP=1
+
+# EDIT_KEY: the /edit password (production: `npx wrangler secret put EDIT_KEY`).
+EDIT_KEY=choose-a-local-password

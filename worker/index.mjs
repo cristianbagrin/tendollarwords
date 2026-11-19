@@ -1,10 +1,14 @@
-/* The Cloudflare Worker: app/ is served as static assets (with app/_headers), and this code
-   answers only /api/* (wrangler.jsonc sends those here first). Sign-in happens at
+/* The Cloudflare Worker: app/ is served as static assets (with app/_headers). This code answers
+   /api/* and the few page addresses wrangler.jsonc sends here first: the website (/, /how-it-works,
+   /privacy, /whats-new), /edit (its words, site.mjs), and /dashboard (the app, app/index.html). Sign-in happens at
    account.cristianbagrin.com; here are /api/vault/<action>, the encrypted synced document
    (vault-api.mjs), and /api/account/<action>, the old accounts, kept so people can move
    (account-api.mjs). Both keep their records in the D1 database bound as DB. */
 import { createHandler, d1KV } from './account-api.mjs';
 import { createVaultHandler } from './vault-api.mjs';
+import { copyApi, sitePage } from './site.mjs';
+
+export { Copy } from './site.mjs';
 
 const ROUTE = /^\/api\/(account|vault)\/([^/]+)$/;
 const DEV_ACCOUNT = /^\/api\/dev-account\/(.+)$/;
@@ -16,7 +20,8 @@ const json = (status, body) => new Response(JSON.stringify(body), {
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
-    if (!url.pathname.startsWith('/api/')) return env.ASSETS.fetch(req);
+    if (!url.pathname.startsWith('/api/')) return (await sitePage(req, env)) ?? env.ASSETS.fetch(req);
+    if (url.pathname === '/api/copy') return copyApi(req, env);
     // Local testing only: with DEV_ACCOUNT_API in .dev.vars (never set in production), the shared
     // account service running on this computer answers here, on the app's own origin, so the
     // page's CSP needn't change. The app uses it when localStorage['tdw.dev.accountApi'] says so.
