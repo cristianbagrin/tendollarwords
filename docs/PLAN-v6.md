@@ -35,6 +35,13 @@ fixes; and improve everything else, core layout included. No limits.
 - **Chinese Brain's rules apply:** no hover tooltips or `title=` anywhere; a small "?" popover where
   an explanation is needed; controls inside what they change; press feedback on every button;
   Chris's photo where the app points to him; American English.
+- **Storage (v5-storage):** items live under `tdw.draft.<id>` as before, with `kind`, `status`, `date`,
+  `tags`, `parentId`, `order`, `archived`, `deletedAt`. Deleting is a tombstone (undo with
+  `Store.restore`), gone for good after 30 days. Each item syncs as its own encrypted record
+  (gzipped, AES-GCM, at an address hashed from the key and id); merges go field by field over what
+  both sides last synced; when both rewrote the text, this device's stays and the other goes into
+  Overflow ("From another device, …:"). Drafts of the same Notion page made on two devices before
+  5.0 merge into one (the lower id). The settings document no longer carries draft fields.
 - **Phone:** controls sit at the bottom, in thumb reach; the drafts sidebar opens with a swipe from
   the left edge and closes with a swipe back; toggle buttons switch off on a second tap; a tap on a
   toast dismisses it.
@@ -42,11 +49,11 @@ fixes; and improve everything else, core layout included. No limits.
 ## To-do
 
 ### 1. Standalone storage and sync
-- [ ] Draft model: `parentId`, `order`, `status`, `date`, `tags`, `kind` ('draft' | 'idea'); migrate existing drafts (Notion Stage/Date/Pillar → status/date/tags).
-- [ ] Worker: per-item encrypted records (`/api/vault/items`: list changed since, get, put with rev, delete), size cap per item, tests.
-- [ ] Client sync: items sync through the account (push on change, pull on focus/interval, conflicts keep both: the other version goes to Overflow), tombstones for deletes.
-- [ ] Import from Notion (one time, from Settings): every page with text, properties and colors; then Notion disconnects.
-- [ ] Remove Notion sync from the app (stage chip, property chips, sync dot, Notion settings).
+- [x] Draft model: `parentId`, `order`, `status`, `date`, `tags`, `kind` ('draft' | 'idea'); migrate existing drafts (Notion Stage/Date/Pillar → status/date/tags). (v5-storage)
+- [x] Worker: per-item encrypted records (`/api/vault/items`: list changed since, get, put with rev, delete), size cap per item, tests. (v5-storage)
+- [x] Client sync: items sync through the account (push on change, pull on focus/interval, conflicts keep both: the other version goes to Overflow), tombstones for deletes. (v5-storage)
+- [ ] Import from Notion (one time, from Settings): every page with text, properties and colors; then Notion disconnects. (`TDW.NotionImport.run` done in v5-storage; the Settings button is still to do)
+- [ ] Remove Notion sync from the app (stage chip, property chips, sync dot, Notion settings). (The live sync loop is gone in v5-storage; `TDW.Sync`'s old calls are no-ops. The UI pieces are still to do.)
 
 ### 2. Projects
 - [ ] Sidebar as a tree: projects open to their parts; drag to reorder and to move into/out of a project.

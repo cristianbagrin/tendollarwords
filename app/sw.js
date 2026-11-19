@@ -9,7 +9,7 @@ const PRECACHE = [
   '/dashboard', 'manifest.webmanifest', 'css/base.css', 'css/page.css', 'css/margin.css', 'css/surfaces.css', 'css/settings.css',
   'js/marks.js', 'js/alts.js', 'js/menu.js', 'js/overflow.js', 'js/lab.js', 'js/challenges.js', 'js/challenge-ui.js', 'js/desk.js', 'js/blocks.js', 'js/notes.js', 'js/bubble.js',
   'js/keys.js', 'js/links.js', 'js/fx.js', 'js/bench.js', 'js/data.js', 'js/inline.js', 'js/engine.js', 'js/spell.js', 'js/tidy.js', 'js/notion-map.js', 'js/sound.js', 'js/store.js', 'js/ai.js',
-  'js/ai-mock.js', 'js/notion.js', 'js/sync.js', 'js/vault.js', 'js/account-keyring.js', 'js/keyring.js', 'js/account.js', 'js/editor.js', 'js/ui.js', 'js/help.js', 'js/formats.js',
+  'js/ai-mock.js', 'js/notion.js', 'js/sync.js', 'js/vault.js', 'js/account-keyring.js', 'js/keyring.js', 'js/account.js', 'js/items-sync.js', 'js/notion-import.js', 'js/editor.js', 'js/ui.js', 'js/help.js', 'js/formats.js',
   'js/spine.js', 'js/margin.js', 'js/review.js', 'js/palette.js', 'js/drafts.js', 'js/dialogs.js', 'js/app.js', 'dict/en-us.txt',
   'img/chris-avatar.webp', 'icons/icon.svg', 'icons/icon-maskable.svg', 'icons/icon-192.png', 'icons/icon-512.png',
   'icons/icon-maskable-512.png', 'icons/icon-180.png'

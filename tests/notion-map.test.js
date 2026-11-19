@@ -436,3 +436,26 @@ test('underline and empty toggles go to Notion and come back', () => {
   const rich2 = N.spliceRich([], '++new++');
   assert.equal(rich2[0].annotations.underline, true);
 });
+
+test('Notion properties become a status, a date and tags', () => {
+  const schema = {
+    Name: { type: 'title' }, Stage: { type: 'status' }, Date: { type: 'date' }, Pillar: { type: 'select' },
+    Topics: { type: 'multi_select' }, Notes: { type: 'rich_text' }, Created: { type: 'created_time' }
+  };
+  assert.deepEqual(M.propsToFields({ Stage: 'Draft 1 (no backspace)', Date: '2026-09-28', Pillar: '30% Craft', Topics: ['AI', 'ai', 'Writing'], Notes: 'x' }, schema),
+    { status: 'drafting', date: '2026-09-28', tags: ['30% Craft', 'AI', 'Writing'] });
+  assert.deepEqual(M.propsToFields({ Stage: 'Idea', Date: null }, schema), { status: 'idea', date: null, tags: [] });
+  assert.equal(M.propsToFields({ Stage: 'Draft 2' }, schema).status, 'editing');
+  assert.deepEqual(M.propsToFields({ Stage: 'Ready' }, schema), { status: 'done', date: null, tags: [] });
+  assert.deepEqual(M.propsToFields({ Stage: 'Posted', Created: '2026-01-01T10:00:00Z' }, schema), { status: 'done', date: null, tags: ['Posted'] });
+  assert.deepEqual(M.propsToFields({ Stage: 'Scheduled' }, schema), { status: 'done', date: null, tags: ['Scheduled'] });
+  // A stage it can't place: drafting, and the stage kept as a tag.
+  assert.deepEqual(M.propsToFields({ Stage: 'Waiting on Sean' }, schema), { status: 'drafting', date: null, tags: ['Waiting on Sean'] });
+  // A date with a time keeps the day.
+  assert.equal(M.propsToFields({ Date: '2026-10-02T09:30:00.000+08:00' }, schema).date, '2026-10-02');
+  // No schema (the database was disconnected): names decide.
+  assert.deepEqual(M.propsToFields({ Stage: 'Editing', 'Publish date': '2026-11-01', Pillar: '40% Personal', Words: '300' }, null),
+    { status: 'editing', date: '2026-11-01', tags: ['40% Personal'] });
+  assert.deepEqual(M.propsToFields({}, null), { status: null, date: null, tags: [] });
+  assert.deepEqual(M.propsToFields(null, schema), { status: null, date: null, tags: [] });
+});

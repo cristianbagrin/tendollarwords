@@ -689,7 +689,58 @@
     }
   }
 
+  /* ---------- Notion's properties → the app's own (5.0) ----------
+     A page's properties, as plain values ({ name: value }, see propFromNotion), become a status
+     ('idea' | 'drafting' | 'editing' | 'done'), a date (YYYY-MM-DD) and tags. The stage (a status
+     property, or a select called Stage or Status) gives the status; a stage that says more than
+     the status can (Scheduled, Posted, or one this can't place) is kept as a tag too. Other selects
+     and multi-selects (Pillar, say) become tags. `schema` is the database's (types by name), or
+     null to go by names alone. Returns { status, date, tags }, each null when nothing says. */
+  const PLAIN_STAGE = /^(ideas?|to[\s_-]?do|not started|backlog|draft(ing)?\b.*|writing|in progress|edit(ing|ed)?|revis(e|ing)|review(ing)?|ready|done|complete(d)?|final)$/i;
+  function stageToStatus(name) {
+    const s = String(name || '').trim().toLowerCase();
+    if (!s) return null;
+    if (/\bideas?\b|backlog|to[\s_-]?do|not started|someday|inbox/.test(s)) return 'idea';
+    if (/post(ed)?\b|publish|done|complete|schedul|sent|live|ready|final|shipped/.test(s)) return 'done';
+    if (/edit|revis|review|polish|rewrit|draft\s*[2-9]|second draft|proof/.test(s)) return 'editing';
+    if (/draft|writ|progress|start|outlin/.test(s)) return 'drafting';
+    return null;
+  }
+
+  const DATE_RE = /^\d{4}-\d{2}-\d{2}/;
+  function propsToFields(props, schema) {
+    const out = { status: null, date: null, tags: [] };
+    const p = props && typeof props === 'object' ? props : {};
+    const sc = schema && typeof schema === 'object' ? schema : null;
+    const typeOf = (name) => (sc && sc[name] ? sc[name].type : null);
+    const names = Object.keys(p);
+    const tag = (v) => { const t = String(v == null ? '' : v).trim(); if (t && !out.tags.some((x) => x.toLowerCase() === t.toLowerCase())) out.tags.push(t.slice(0, 60)); };
+    // The stage.
+    let stage = names.find((n) => typeOf(n) === 'status');
+    if (!stage) stage = names.find((n) => /^(stage|status)$/i.test(n) && (!sc || typeOf(n) === 'select') && typeof p[n] === 'string');
+    if (stage && typeof p[stage] === 'string' && p[stage].trim()) {
+      const v = p[stage].trim();
+      out.status = stageToStatus(v) || 'drafting';
+      if (!PLAIN_STAGE.test(v)) tag(v);
+    }
+    // The date: a date property, the one named like a date first.
+    const dates = names.filter((n) => (sc ? typeOf(n) === 'date' : /date|publish|post|due/i.test(n)) && typeof p[n] === 'string' && DATE_RE.test(p[n]));
+    const dn = dates.find((n) => /date|publish|post|due/i.test(n)) || dates[0];
+    if (dn) out.date = p[dn].slice(0, 10);
+    // Tags: every other select and multi-select.
+    for (const n of names) {
+      if (n === stage) continue;
+      const t = typeOf(n), v = p[n];
+      const likeTags = sc ? t === 'select' || t === 'multi_select' : /pillar|tag|categor|topic|type|platform|theme|series|label/i.test(n);
+      if (!likeTags) continue;
+      if (Array.isArray(v)) v.forEach(tag);
+      else if (typeof v === 'string') tag(v);
+    }
+    return out;
+  }
+
   return {
+    stageToStatus, propsToFields,
     isOpaqueLine, looksOpaque, blocksToEntries, entriesToText, lineToSpec, richPlain, richToMd, spliceRich,
     richFromText, richFromMd, blockPayload, planOps, applyOps, sameContent, propFromNotion, propToNotion, EDITABLE,
     ghostMasks, ghostsFromEntries, grayOf, colorMasks, colorsOf, hlsFromEntries, splitPage, isOverflowBlock, overflowLines, overflowBlock, OVERFLOW_TITLE
