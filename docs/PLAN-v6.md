@@ -56,14 +56,14 @@ fixes; and improve everything else, core layout included. No limits.
 - [ ] Remove Notion sync from the app (stage chip, property chips, sync dot, Notion settings). (The live sync loop is gone in v5-storage; `TDW.Sync`'s old calls are no-ops. The UI pieces are still to do.)
 
 ### 2. Projects
-- [ ] Sidebar as a tree: projects open to their parts; drag to reorder and to move into/out of a project.
-- [ ] A project page lists its parts under its text; "New part"; whole-project cost.
-- [ ] Read the whole project as one manuscript; copy and export (Markdown) the whole thing.
+- [x] Sidebar as a tree: projects open to their parts; drag to reorder and to move into/out of a project. (v5-projects)
+- [x] A project page lists its parts under its text; "New part"; whole-project cost. (v5-projects)
+- [x] Read the whole project as one manuscript; copy and export (Markdown) the whole thing. (v5-projects)
 
 ### 3. Ideas
-- [ ] Capture: phone bottom-bar button, ⌘⇧I, palette, `/dashboard?idea=`, manifest share target.
-- [ ] Ideas list: search, tags, newest first, swipe/archive, undo.
-- [ ] Turn into a draft, into a part of a project, or insert into the open draft.
+- [x] Capture: phone bottom-bar button, ⌘⇧I, palette, `/dashboard?idea=`, manifest share target. (v5-projects)
+- [x] Ideas list: search, tags, newest first, swipe/archive, undo. (v5-projects)
+- [x] Turn into a draft, into a part of a project, or insert into the open draft. (v5-projects)
 
 ### 4. Settings (Chinese Brain style)
 - [ ] Settings window: sections sidebar (Account, Writing, Review, Tidy, Look, Sound, AI, Shortcuts, About); each setting a row in a rounded group, control inside the row; "?" popovers; phone = section list that pushes in.
@@ -77,8 +77,8 @@ fixes; and improve everything else, core layout included. No limits.
 ### 6. Bugs and phone
 - [x] A click/tap anywhere below the last paragraph puts the caret at the end (a new empty paragraph if the last one has text).
 - [x] A tap on a toast (Undo included) dismisses it; Undo undoes and dismisses.
-- [ ] Sidebar actions at the bottom on a phone; swipe from the left edge opens it, swipe left closes it.
-- [ ] New draft: date = today, properties sheet, tap outside to close.
+- [x] Sidebar actions at the bottom on a phone; swipe from the left edge opens it, swipe left closes it. (v5-projects)
+- [x] New draft: date = today, properties sheet, tap outside to close. (v5-projects)
 - [x] Toggle buttons (bench/bottom bar) switch off on a second press.
 - [x] iOS Passwords autofill: its suggestions take taps (find what sits over or intercepts them in the sign-in form). (v5-phone: a dialog ignores outside clicks while one of its fields has focus or for 800 ms after; sheets drag only by the grabber. Needs a check on a real iPhone.)
 - [x] Remove every hover tooltip / `title=`; "?" popovers instead.
