@@ -37,6 +37,8 @@
 
   /* ---------- The handle in the margin ---------- */
 
+  let plusClosed = false; // the + was pressed while its "/" menu was open
+
   function build() {
     handle = UI.el('div', { class: 'blk-handle', hidden: true, 'aria-hidden': 'false' });
     plus = UI.el('button', { type: 'button', class: 'blk-btn blk-plus', 'aria-label': 'Add a block below' });
@@ -49,6 +51,7 @@
 
     for (const b of [plus, grip]) b.addEventListener('mousedown', (e) => e.preventDefault());
     plus.addEventListener('click', (e) => {
+      if (plusClosed) { plusClosed = false; Editor.focus(); return; } // pressed again: the menu it opened goes away
       const i = hoverLine;
       if (i < 0 || !editable()) return;
       if (e.altKey) addAbove(i); else addBelow(i);
@@ -420,7 +423,10 @@
     root().addEventListener('beforeinput', onBeforeInput, true);
     root().addEventListener('keydown', () => hide());
     root().addEventListener('blur', () => setTimeout(() => { if (slash && document.activeElement !== root()) closeSlash(); }, 0));
-    document.addEventListener('pointerdown', (e) => { if (slash && slash.node && !slash.node.contains(e.target)) closeSlash(); }, true);
+    document.addEventListener('pointerdown', (e) => {
+      plusClosed = !!(slash && slash.fromPlus && plus.contains(e.target));
+      if (slash && slash.node && !slash.node.contains(e.target)) closeSlash();
+    }, true);
   }
 
   TDW.Blocks = {

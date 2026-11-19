@@ -608,7 +608,7 @@
       p.className = 'alt-pager' + (vertical ? ' is-paragraph' : '') + (a.active ? ' is-variation' : '') + (a.id === openAlt ? ' is-open' : '');
       p.style.cssText = box;
       p._alt = a.id;
-      p.title = (a.active ? 'Variation ' + (a.active + 1) : 'The original') + ' of ' + a.options.length + ' · click for the list';
+      p.setAttribute('aria-label', (a.active ? 'Variation ' + (a.active + 1) : 'The original') + ' of ' + a.options.length);
       const want = Math.min(a.options.length, 12);
       if (p.childElementCount !== want || p._active !== a.active) {
         const dots = [];
@@ -662,7 +662,6 @@
         b.innerHTML = PIN_SVG + (label ? '<span class="note-pin-n">' + label + '</span>' : '');
       }
       b.setAttribute('aria-label', row.ids.length > 1 ? row.ids.length + ' notes' : 'Note');
-      b.title = row.ids.length > 1 ? row.ids.length + ' notes' : 'Open the note';
     }
     hideFrom('pin', k);
   }
@@ -696,7 +695,6 @@
     for (const [top, list] of byY) {
       const l = label(li++);
       l.textContent = list.length === 1 ? list[0].label : 'see more';
-      l.title = list.map((f) => f.title).join('\n');
       l.style.cssText = 'top:' + top + 'px;height:' + lhFold + 'px';
     }
     hideFrom('label', li);
@@ -744,7 +742,7 @@
       const num = f.firstChild;
       num.hidden = segs.length < 2;
       num.textContent = (k + 1) + '/' + segs.length;
-      num.title = 'Select post ' + (k + 1);
+      num.setAttribute('aria-label', 'Select post ' + (k + 1));
       f.children[1].hidden = !(aids && aids.addPost) || readOnly || k !== segs.length - 1;
       if (info) {
         f.lastChild.textContent = info.words + (info.words === 1 ? ' word' : ' words') + ' · ' + info.length + '/' + info.limit;
@@ -1721,6 +1719,54 @@
     commitLines(a, b, objs, { sel: { start: caret, end: caret } }, 'ime');
   }
 
+  /* ---------- Below the last line ----------
+     A click or tap anywhere in the empty page under the text goes to its end, like a sheet of
+     paper: onto a new empty paragraph when the last line has words (one undo step), or onto the
+     last line when it is already empty. Only a click counts: a drag that starts there is left
+     to the browser, and a scroll on a phone is still a scroll. The lines' own to-do boxes,
+     toggles and double-click are above this space, so they never meet it. */
+  function belowText(e) {
+    const t = e.target;
+    if (!t || !t.closest || (t !== root && root.contains(t))) return false;
+    if (t !== root && t.closest('button, a, input, textarea, select, label, [role], [tabindex], dialog, .menu, .rn, .pcard')) return false;
+    let bottom = root.getBoundingClientRect().top;
+    for (let k = root.children.length - 1; k >= 0; k--) {
+      const r = root.children[k].getBoundingClientRect();
+      if (r.height) { bottom = r.bottom; break; } // a line folded away has no box
+    }
+    return e.clientY > bottom;
+  }
+
+  function caretBelow() {
+    if (readOnly || root.contentEditable !== 'true') return;
+    const i = lines.length - 1;
+    const p = P[i];
+    const ends = vstarts[i] + p.vis.length;
+    if (p.vis.length || p.blk.type === 'hr' || p.blk.type === 'opaque') {
+      commitLines(i, i, [{ md: lines[i] }, { blk: { type: 'p' }, chars: [] }], { line: i + 1, col: 0 }, 'enter');
+    } else sel = { start: ends, end: ends, backward: false };
+    root.focus({ preventScroll: true });
+    applySel();
+    call('onSelect');
+  }
+
+  function wireBelow() {
+    const page = root.closest('.page') || root.parentNode;
+    let down = null;
+    page.addEventListener('pointerdown', (e) => { down = e.button === 0 && belowText(e) ? { x: e.clientX, y: e.clientY } : null; }, true);
+    // A second click there (a double-click) keeps the caret where the first one put it.
+    page.addEventListener('mousedown', (e) => { if (e.detail > 1 && e.button === 0 && belowText(e)) e.preventDefault(); });
+    page.addEventListener('click', (e) => {
+      const d = down;
+      down = null;
+      if (!d || e.button !== 0 || e.defaultPrevented || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      if (Math.hypot(e.clientX - d.x, e.clientY - d.y) > 8 || !belowText(e)) return;
+      const ds = document.getSelection();
+      if (ds && !ds.isCollapsed && document.activeElement !== root) return; // a drag that selected something
+      caretBelow();
+    });
+  }
+
   /* ---------- Public ---------- */
 
   function focus() {
@@ -1850,6 +1896,7 @@
         applySel();
         call('onSelect');
       });
+      wireBelow();
       root.addEventListener('focus', () => requestAnimationFrame(() => { if (document.activeElement === root && !readSel()) applySel(); }));
       document.addEventListener('selectionchange', onSelectionChange);
       window.addEventListener('resize', () => {

@@ -160,6 +160,7 @@
     hideCard();
     if (app().state.mode === 'edit') app().refresh();
     if (TDW.Review) TDW.Review.redraw();
+    if (TDW.Bench) TDW.Bench.render();
   }
 
   function begin(r) {
@@ -168,6 +169,7 @@
     if (app().state.mode !== 'edit') app().setMode('edit');
     else app().refresh();
     if (TDW.Margin && !M().isNarrow() && M().view() !== 'review') M().setView('review');
+    if (TDW.Bench) TDW.Bench.render();
   }
 
   function needsKey(title) {
@@ -454,12 +456,13 @@
       if (run.kind === 'trim') { if (walk) showWalk(); else trimCard(); }
       else checkCard();
     },
-    onMode(m) { if (m !== 'edit' && run) { clearMarks(); hideCard(); } },
+    onMode(m) { if (m !== 'edit' && run) { clearMarks(); hideCard(); if (TDW.Bench) TDW.Bench.render(); } },
     open: () => TDW.Palette.open({ page: 'lab' }),
     close: () => { if (TDW.Palette.isOpen()) TDW.Palette.close(); },
     isOpen: () => TDW.Palette.isOpen(),
     run: check, trim, done,
     isRunning: () => !!run,
+    kind: () => (run ? run.kind : null),
     notes, applyFix, dismiss,
     LEVELS, ITEMS
   };

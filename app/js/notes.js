@@ -85,7 +85,7 @@
     closeColor();
     const cur = Marks.colorAt(ann(), start, end);
     const swatch = (c, label) => {
-      const b = UI.el('button', { type: 'button', class: 'swatch sw-' + (c || 'default') + (c === cur ? ' is-on' : ''), 'aria-label': label, title: label, text: 'A' });
+      const b = UI.el('button', { type: 'button', class: 'swatch sw-' + (c || 'default') + (c === cur ? ' is-on' : ''), 'aria-label': label, text: 'A' });
       b.addEventListener('mousedown', (e) => e.preventDefault());
       b.addEventListener('click', () => { closeColor(); applyColor(start, end, c); });
       return b;
@@ -236,7 +236,7 @@
     node.classList.toggle('is-done', !!n.done);
     const quoteText = n.end > n.start ? TDW.Inline.plain(t.slice(n.start, n.end)) : '';
     const head = UI.el('div', { class: 'note-head' },
-      UI.el('label', { class: 'note-check', title: n.done ? 'Mark as not done' : 'Mark as done' },
+      UI.el('label', { class: 'note-check' },
         UI.el('input', { type: 'checkbox', checked: !!n.done, 'aria-label': 'Done', onchange: (e) => setNote(n.id, { done: e.target.checked }) })),
       UI.el('span', { class: 'note-kind', text: n.ai ? '✦ AI thread' : 'Note' }),
       UI.el('span', { class: 'note-when', text: n.at ? UI.relTime(n.at) : '' }),

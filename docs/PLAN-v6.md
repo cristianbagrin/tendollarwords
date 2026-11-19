@@ -68,13 +68,13 @@ fixes; and improve everything else, core layout included. No limits.
 - [ ] "Tidy with AI" for grammar: on demand, minimal edits, shows each change, one undo.
 
 ### 6. Bugs and phone
-- [ ] A click/tap anywhere below the last paragraph puts the caret at the end (a new empty paragraph if the last one has text).
-- [ ] A tap on a toast (Undo included) dismisses it; Undo undoes and dismisses.
+- [x] A click/tap anywhere below the last paragraph puts the caret at the end (a new empty paragraph if the last one has text).
+- [x] A tap on a toast (Undo included) dismisses it; Undo undoes and dismisses.
 - [ ] Sidebar actions at the bottom on a phone; swipe from the left edge opens it, swipe left closes it.
 - [ ] New draft: date = today, properties sheet, tap outside to close.
-- [ ] Toggle buttons (bench/bottom bar) switch off on a second press.
-- [ ] iOS Passwords autofill: its suggestions take taps (find what sits over or intercepts them in the sign-in form).
-- [ ] Remove every hover tooltip / `title=`; "?" popovers instead.
+- [x] Toggle buttons (bench/bottom bar) switch off on a second press.
+- [x] iOS Passwords autofill: its suggestions take taps (find what sits over or intercepts them in the sign-in form). (v5-phone: a dialog ignores outside clicks while one of its fields has focus or for 800 ms after; sheets drag only by the grabber. Needs a check on a real iPhone.)
+- [x] Remove every hover tooltip / `title=`; "?" popovers instead.
 
 ### 7. Website
 - [ ] Home, How it works, Privacy, What's new at `/`; app moves to `/dashboard` (old `/` users go straight in).

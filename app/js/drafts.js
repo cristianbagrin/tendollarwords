@@ -208,7 +208,7 @@
     const tint = PICK_TYPES.has(f.type) && shown ? colorOf(f, Array.isArray(v) ? v[0] : v) : null;
     const b = el('button', {
       type: 'button', class: 'chip' + (shown ? '' : ' is-empty') + (tint ? ' is-tint' : '') + ' t-' + f.type,
-      style: tint ? '--c:' + tint : null, 'data-tip': shown ? f.name : null,
+      style: tint ? '--c:' + tint : null,
       'aria-label': f.name + ': ' + (shown || 'empty') + '. Change', dataset: { key: 'prop:' + d.id + ':' + f.name }
     }, f.type === 'status' && shown ? el('span', { class: 'chip-dot' }) : null,
     f.type === 'checkbox' && shown ? icon('check') : null,
@@ -224,7 +224,7 @@
   const filterCount = () => Object.values(view.filters).reduce((n, a) => n + a.length, 0);
 
   function viewButton(label, tip, onclick, extra) {
-    const b = el('button', { type: 'button', class: 'dr-view', 'data-tip': tip, 'aria-haspopup': 'menu', onclick: () => onclick(b) }, el('span', { text: label }), extra || null);
+    const b = el('button', { type: 'button', class: 'dr-view', 'aria-label': tip ? tip + ': ' + label : null, 'aria-haspopup': 'menu', onclick: () => onclick(b) }, el('span', { text: label }), extra || null);
     return b;
   }
 
@@ -234,12 +234,12 @@
       viewButton(groupLabel(), 'Group by', groupMenu),
       viewButton(sortLabel(), 'Sort by', sortMenu, el('span', { class: 'dr-dir' + (view.dir === 'asc' ? ' is-asc' : ''), 'aria-hidden': 'true' }, icon('arrowDown'))),
       schema() ? viewButton('Filter', 'Show only some drafts', filterMenu, n ? el('span', { class: 'dr-n', text: String(n) }) : null) : null,
-      schema() ? el('button', { type: 'button', class: 'dr-view dr-view-icon', 'data-tip': 'Properties on each row', 'aria-label': 'Properties on each row', 'aria-haspopup': 'menu', onclick: (e) => propsMenu(e.currentTarget) }, icon('sliders')) : null].filter(Boolean));
+      schema() ? el('button', { type: 'button', class: 'dr-view dr-view-icon', 'aria-label': 'Properties on each row', 'aria-haspopup': 'menu', onclick: (e) => propsMenu(e.currentTarget) }, icon('sliders')) : null].filter(Boolean));
     const chips = [];
     for (const name of Object.keys(view.filters)) {
       const f = Object.assign({ name }, (schema() || {})[name]);
       for (const v of view.filters[name]) {
-        chips.push(el('button', { type: 'button', class: 'chip is-tint is-filter', style: '--c:' + colorOf(f, v), 'aria-label': 'Stop filtering by ' + v, 'data-tip': 'Showing ' + name + ': ' + v + '. Click to clear', onclick: () => { toggleFilter(name, v); render(); } },
+        chips.push(el('button', { type: 'button', class: 'chip is-tint is-filter', style: '--c:' + colorOf(f, v), 'aria-label': 'Stop filtering by ' + v, onclick: () => { toggleFilter(name, v); render(); } },
           el('span', { class: 'chip-text', text: v }), icon('close')));
       }
     }
@@ -312,17 +312,14 @@
   function rowOf(d, cur, props) {
     const title = Store.displayTitle(d);
     const linked = !!(d.url && /^https?:\/\//.test(d.url));
-    const fetched = !(d.notionId && !d.contentFetchedAt && !d.text);
-    const words = Store.countWords(d.text);
     const is = cur && d.id === cur.id;
-    const open = el('button', { type: 'button', class: 'dr-open', dataset: { key: 'open:' + d.id }, 'aria-current': is ? 'true' : null,
-      title: 'Edited ' + relTime(d.updatedAt) + (fetched ? ', ' + words + ' ' + plural(words, 'word', 'words') + ', ' + money(words * 10) : '') },
+    const open = el('button', { type: 'button', class: 'dr-open', dataset: { key: 'open:' + d.id }, 'aria-current': is ? 'true' : null },
     el('span', { class: 'dr-title', text: title }));
     open.addEventListener('click', (e) => { e.stopPropagation(); openDraft(d.id); });
     const li = el('li', { class: 'dr-row' + (is ? ' is-current' : '') },
       el('div', { class: 'dr-line' }, open,
-        linked ? el('a', { class: 'dr-ext', href: d.url, target: '_blank', rel: 'noopener', 'aria-label': 'Open “' + title + '” in Notion', 'data-tip': 'Open in Notion', onclick: (e) => e.stopPropagation() }, icon('external')) : null,
-        el('button', { type: 'button', class: 'dr-del', 'aria-label': 'Delete “' + title + '”', 'data-tip': 'Delete', dataset: { key: 'del:' + d.id }, onclick: (e) => { e.stopPropagation(); deleteDraft(d.id); } }, icon('trash'))),
+        linked ? el('a', { class: 'dr-ext', href: d.url, target: '_blank', rel: 'noopener', 'aria-label': 'Open “' + title + '” in Notion', onclick: (e) => e.stopPropagation() }, icon('external')) : null,
+        el('button', { type: 'button', class: 'dr-del', 'aria-label': 'Delete “' + title + '”', dataset: { key: 'del:' + d.id }, onclick: (e) => { e.stopPropagation(); deleteDraft(d.id); } }, icon('trash'))),
       props.length && !d.localOnly && d.props ? el('div', { class: 'dr-props' }, props.map((f) => chip(d, f))) : null);
     li.addEventListener('click', () => openDraft(d.id));
     return li;
@@ -381,7 +378,6 @@
     const tip = st === 'synced' ? 'Synced' + when + '. Click to sync now'
       : st === 'syncing' ? 'Syncing with Notion'
         : (SYNC_TEXT[st] || 'Notion') + (s.message && st === 'error' ? ': ' + s.message : '') + (s.at ? '. Last synced' + when : '') + '. Click to try again';
-    syncBtn.dataset.tip = tip;
     syncBtn.setAttribute('aria-label', tip);
   }
 
@@ -464,7 +460,7 @@
     root.dataset.drafts = next || '';
     side.inert = !next;
     pinBtn.setAttribute('aria-pressed', String(next === 'pinned' || next === 'held'));
-    pinBtn.dataset.tip = TDW.Keys.tip(next === 'pinned' || next === 'held' ? 'Close' : 'Keep open', 'drafts');
+    pinBtn.setAttribute('aria-label', next === 'pinned' || next === 'held' ? 'Close the sidebar' : 'Keep the sidebar open');
     $('spine-title').setAttribute('aria-expanded', String(!!next));
     // The page slides over when the sidebar docks; the margin's fixed parts follow it.
     if ((was === 'pinned') !== (next === 'pinned') && TDW.Margin) {
@@ -521,16 +517,16 @@
       rows[Math.max(0, Math.min(rows.length - 1, i + (e.key === 'ArrowDown' ? 1 : -1)))].focus();
     });
     nameEl = el('h2', { id: 'drafts-title', class: 'dr-name', text: 'Drafts' });
-    syncBtn = el('button', { type: 'button', class: 'dr-tool dr-sync tip-end', hidden: true, onclick: syncNow }, icon('sync'));
+    syncBtn = el('button', { type: 'button', class: 'dr-tool dr-sync', hidden: true, onclick: syncNow }, icon('sync'));
     syncBtn.addEventListener('pointerenter', renderSync);
-    pinBtn = el('button', { type: 'button', class: 'dr-tool dr-pin tip-end', 'aria-pressed': 'false', 'aria-label': 'Keep the sidebar open', onclick: toggle }, icon('sidebar'));
+    pinBtn = el('button', { type: 'button', class: 'dr-tool dr-pin', 'aria-pressed': 'false', 'aria-label': 'Keep the sidebar open', onclick: toggle }, icon('sidebar'));
     barEl = el('div', { class: 'dr-bar', role: 'group', 'aria-label': 'View' });
     chipsEl = el('div', { class: 'dr-filters', hidden: true });
     footEl = el('p', { class: 'dr-foot' }, 'Drafts live in this browser. ',
       el('button', { type: 'button', class: 'link', text: 'Connect Notion', onclick: () => { if (state !== 'pinned') close(); TDW.Dialogs.openSettings('notion'); } }));
     body = el('div', { class: 'dr' },
       el('div', { class: 'dr-head sheet-drag' }, nameEl, syncBtn,
-        el('button', { type: 'button', class: 'dr-tool tip-end', 'aria-label': 'New draft', 'data-tip': TDW.Keys.tip('New draft', 'newDraft'), onclick: newDraft }, icon('plus')), pinBtn),
+        el('button', { type: 'button', class: 'dr-tool', 'aria-label': 'New draft', onclick: newDraft }, icon('plus')), pinBtn),
       el('div', { class: 'dr-find' }, icon('search'), findEl),
       barEl, chipsEl, listEl, footEl);
     sheet.append(el('div', { class: 'grabber', 'aria-hidden': 'true' }));
