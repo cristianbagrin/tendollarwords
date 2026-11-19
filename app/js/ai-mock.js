@@ -40,6 +40,17 @@
     return out;
   }
 
+  // Grammar slips a proofreader would catch: { find, replace }, each stretch once in the text.
+  function tidyEdits(input) {
+    const t = String(input.text || '');
+    const out = [];
+    const add = (find, replace) => { if (once(t, find)) out.push({ find, replace }); };
+    for (const m of t.matchAll(/\bTheir (is|are|was) /g)) add(m[0], 'There ' + m[1] + ' ');
+    for (const m of t.matchAll(/\b(should|could|would) of\b/g)) add(m[0], m[1] + ' have');
+    for (const m of t.matchAll(/\b(he|she|it) dont\b/gi)) add(m[0], m[1] + " doesn't");
+    return out;
+  }
+
   function trimCuts(input) {
     const t = String(input.text || '');
     const target = input.target || 1;
@@ -73,6 +84,7 @@
         return { options: [{ text: 'The team wrote it.', note: 'Doer comes first' }] };
       case 'lab': return { marks: labMarks(input) };
       case 'trim': return { cuts: trimCuts(input) };
+      case 'tidy': return { edits: tidyEdits(input) };
       case 'messageCheck':
         return {
           takeaway: 'Cut words and your writing gets clearer.',

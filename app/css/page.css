@@ -202,6 +202,12 @@ html.lens.is-typing .ln.is-caret .hl-spelling { text-decoration-color: color-mix
 .editor mark.hl.is-active, .editor .hs.is-active, .editor .lab.is-active { background: var(--highlight); }
 html.lens-pre .hl { transition: none; }
 
+/* Tidy: a quiet underline that fades under a word fixed as you type; "Tidy with AI" leaves a dotted one a click undoes. */
+.tidy-flash { position: absolute; height: 2px; border-radius: 1px; background: var(--blue-mark); opacity: 0; pointer-events: none; animation: tidy-fade 600ms ease-out; }
+@keyframes tidy-fade { from { opacity: .6; } to { opacity: 0; } }
+.tidy-ai { text-decoration: underline dotted 1.5px color-mix(in srgb, var(--blue-mark) 85%, transparent); text-underline-offset: .26em; text-decoration-skip-ink: none; cursor: pointer; }
+@media (prefers-reduced-motion: reduce) { .tidy-flash { display: none; } }
+
 /* Lab marks: dashed blue pencil; a typo in red. Trim strikes in red what it would cut. */
 .lab-weak, .lab-long, .lab-convoluted, .lab-tone, .lab-hedge {
   text-decoration: underline dashed 1.5px color-mix(in srgb, var(--blue-mark) 85%, transparent); text-underline-offset: .26em; text-decoration-skip-ink: none; cursor: pointer;
