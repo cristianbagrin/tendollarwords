@@ -52,8 +52,8 @@ fixes; and improve everything else, core layout included. No limits.
 - [x] Draft model: `parentId`, `order`, `status`, `date`, `tags`, `kind` ('draft' | 'idea'); migrate existing drafts (Notion Stage/Date/Pillar → status/date/tags). (v5-storage)
 - [x] Worker: per-item encrypted records (`/api/vault/items`: list changed since, get, put with rev, delete), size cap per item, tests. (v5-storage)
 - [x] Client sync: items sync through the account (push on change, pull on focus/interval, conflicts keep both: the other version goes to Overflow), tombstones for deletes. (v5-storage)
-- [ ] Import from Notion (one time, from Settings): every page with text, properties and colors; then Notion disconnects. (`TDW.NotionImport.run` done in v5-storage; the Settings button is still to do)
-- [ ] Remove Notion sync from the app (stage chip, property chips, sync dot, Notion settings). (The live sync loop is gone in v5-storage; `TDW.Sync`'s old calls are no-ops. The UI pieces are still to do.)
+- [x] Import from Notion (one time, from Settings): every page with text, properties and colors; then Notion disconnects. (v5-storage; Settings → Account → Import, and a line in the sidebar while pages are missing)
+- [x] Remove Notion sync from the app (stage chip, property chips, sync dot, Notion settings). (v5-storage, v5-projects; the last Notion wording and the stage chip's CSS went in v5-review. `notion*.js` and `sync.js` stay for the import.)
 
 ### 2. Projects
 - [x] Sidebar as a tree: projects open to their parts; drag to reorder and to move into/out of a project. (v5-projects)
@@ -66,13 +66,13 @@ fixes; and improve everything else, core layout included. No limits.
 - [x] Turn into a draft, into a part of a project, or insert into the open draft. (v5-projects)
 
 ### 4. Settings (Chinese Brain style)
-- [ ] Settings window: sections sidebar (Account, Writing, Review, Tidy, Look, Sound, AI, Shortcuts, About); each setting a row in a rounded group, control inside the row; "?" popovers; phone = section list that pushes in.
-- [ ] Account block first-class (avatar, sync status, account.cristianbagrin.com); About with Chris's photo.
+- [x] Settings window: sections sidebar (Account, Writing, Review, Tidy, Look, Sound, AI, Shortcuts, About); each setting a row in a rounded group, control inside the row; "?" popovers; phone = section list that pushes in.
+- [x] Account block first-class (avatar, sync status, account.cristianbagrin.com); About with Chris's photo.
 
 ### 5. Tidy
-- [ ] Rules engine (pure, tested): typos with one clear fix, doubled words, "i", capitals, spaces, a/an, doubled punctuation; never inside code, links, names, or words in the dictionary.
-- [ ] Live as you type (after the word/sentence is left), with a brief mark and ⌘Z; a setting to turn it off.
-- [ ] "Tidy with AI" for grammar: on demand, minimal edits, shows each change, one undo.
+- [x] Rules engine (pure, tested): typos with one clear fix, doubled words, "i", capitals, spaces, a/an, doubled punctuation; never inside code, links, names, or words in the dictionary.
+- [x] Live as you type (after the word/sentence is left), with a brief mark and ⌘Z; a setting to turn it off.
+- [x] "Tidy with AI" for grammar: on demand, minimal edits, shows each change, one undo.
 
 ### 6. Bugs and phone
 - [x] A click/tap anywhere below the last paragraph puts the caret at the end (a new empty paragraph if the last one has text).
@@ -84,13 +84,14 @@ fixes; and improve everything else, core layout included. No limits.
 - [x] Remove every hover tooltip / `title=`; "?" popovers instead.
 
 ### 7. Website
-- [ ] Home, How it works, Privacy, What's new at `/`; app moves to `/dashboard` (old `/` users go straight in).
-- [ ] `/edit` for the pages' words (Copy store, `EDIT_KEY` secret).
+- [x] Home, How it works, Privacy, What's new at `/`; app moves to `/dashboard` (old `/` users go straight in).
+- [x] `/edit` for the pages' words (Copy store, `EDIT_KEY` secret).
 - [ ] Listed on cristianbagrin.com (Projects, jump row, short link, zh-tw too, screenshot), work.cristianbagrin.com, and the account page.
 
 ### 8. Overall pass
-- [ ] Design review of every surface on a computer and a phone (Emil skills: mobile-native, gestures, review-animations, break-ui).
-- [ ] README, What's new, version 5.0.0, deploy, check the live site.
+- [x] Design review of every surface on a computer and a phone (Emil skills: mobile-native, gestures, review-animations, break-ui). (v5-review)
+- [x] README, What's new, Privacy, home screenshot, version 5.0.0. (v5-review)
+- [ ] Deploy (needs the `EDIT_KEY` secret), check the live site.
 
 ## Status (2026-11-19, session 1 ended at the usage limit)
 
@@ -101,3 +102,16 @@ merge into main, then wave 2 (projects, ideas, phone fixes), then the design rev
 Leads found so far: the iOS Passwords bug likely involves the sheet's pointer handling in `wireDialog`
 (`app/js/ui.js`, around line 444); the click-below-the-page bug is in `app/js/editor.js` mousedown handling (around line 1775).
 Deploy needs an `EDIT_KEY` secret on the tendollarwords Worker (same password as the other sites).
+
+## Status (2026-11-20, v5-review)
+
+Everything above is merged on `v5-review` and reviewed as one app on a computer (1280×800) and a phone
+(375×812), light and dark, with a 60-chapter book, long titles, CJK/emoji and 200 ideas. Version 5.0.0.
+Left: deploy, the listings on cristianbagrin.com/work/account (section 7), and the real-iPhone checks
+(Passwords autofill, the drawer swipe, safe areas).
+
+- **Decisions (v5-review):** light is the default theme (System is a choice); a project's parts are one
+  line in the sidebar (title and a status dot; the rest under ⋯ → Properties); a title typed in the
+  properties wins over the first sentence everywhere ("Untitled" when there's neither); the palette
+  opens and closes with no motion; in Read as one a chapter's own headings sit under its name.
+

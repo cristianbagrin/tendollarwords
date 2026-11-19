@@ -1,313 +1,98 @@
 # Ten Dollar Words
 
-A writing app where every word costs $10. Version 3 is the Margin design (`docs/DESIGN.md`): one quiet page that never moves, a thin bar over it (the spine) with the draft's title on the left and what the words have cost so far on the right, and a review (⌘E) that arrives like an editor's pencil: hard sentences bracketed in the left gutter, phrases underlined, and short notes in the right margin beside their line. Everything else (drafts aside, formats, the Lab, Trim, challenges, Overflow, settings, sharing) is in the command palette (⌘K, or the ⋯ in the spine). Optional AI help comes from Google Gemini, and drafts can sync both ways with a Notion database.
+A writing app where every word costs $10. One quiet page, a thin bar over it (the spine) with the draft's title and what its words have cost, and a review (⌘E) that marks hard sentences and wordy phrases and says what cutting each one saves. Everything else is in the command palette (⌘K, or ⋯ in the spine).
 
-Your cristianbagrin.com account (Settings → Account), the one Chris's other apps use too, keeps your Notion connection, Gemini key, settings and dictionary, end-to-end encrypted, so every browser you sign in to is set up at once. On a phone the app speaks phone: taps instead of clicks and typing shortcuts instead of keyboard shortcuts.
+It lives at https://tendollarwords.cristianbagrin.com: the website at `/` (Home, How it works, What's new, Privacy), the app at `/dashboard`. Someone who has used the app in a browser goes straight from `/` to `/dashboard`. Chris edits the website's words at `/edit`.
 
-It's plain HTML, CSS, and JavaScript with no build step. It lives at https://tendollarwords.cristianbagrin.com, on one Cloudflare Worker: the Worker serves `app/` as it is, and the one piece that runs on a server is the encrypted synced document (`worker/`, with its records in a Cloudflare D1 database). Sign-in happens at account.cristianbagrin.com.
+Plain HTML, CSS and JavaScript, no build step, on one Cloudflare Worker with a D1 database. `docs/DESIGN.md` is the design; `docs/PLAN-v6.md` is the 5.0 plan and its decisions.
 
-## New in 4.1
+## Writing
 
-- **One recovery key for your whole cristianbagrin.com account.** Ten Dollar Words and Money in Order share it. Your data key now sits under your account's master key, which your password and that one recovery key open (the scheme: `app/js/account-keyring.js`, the same file as the account service's). Signed in from before? Settings → Account asks for your password once to switch; the recovery key Ten Dollar Words gave you before then stops working. Nothing synced is re-encrypted.
+- **Drafts** have a status (Idea, Drafting, Editing, Done), a date, tags, a format (Basic, LinkedIn, X, Threads, Substack) and a budget. A new draft opens a small sheet of them; nothing in it is required.
+- **Projects.** Any draft can hold other drafts, in order: a book and its chapters. Its page lists its parts and the whole cost; ⋯ → Read as one shows, copies or saves the lot as one Markdown manuscript. Drag rows in the sidebar to reorder them or move them into a project, or use ⋯ → Move to….
+- **Ideas.** ⌘⇧I, the bulb (on the bench, in the sidebar), the palette, `/dashboard?idea=…` (for an iOS Shortcut) or the phone's share sheet (the manifest's share target). `#tags` at the end become tags. An idea turns into a draft, a part of a project, or a paragraph in the open draft.
+- **Tidy** fixes low-risk mistakes as you leave a word: typos with one right answer, doubled words, "i", sentence capitals, spaces, a/an, doubled punctuation. Never in code, links, names or dictionary words. ⌘Z takes a fix back. Settings → Tidy turns it off; palette → Tidy with AI fixes grammar on request and shows each change.
+- **Review** (⌘E), **the Lab and Trim** (⌃⇧L), **alternatives**, **ghosts**, **Overflow**, **notes**, **colors**, **writing challenges**, **no backspace**: in the palette, the right-click menu and the bench under the page.
+- **AI** is optional: your own Google Gemini key (Settings → AI, free at https://aistudio.google.com/apikey). Model on Automatic uses the newest Flash model and falls back when Google is busy. Only what you ask about is sent.
 
-## New in 4.0
+## Where drafts live
 
-- **One account for all of Chris's apps.** Sign in with your cristianbagrin.com account. If you had a Ten Dollar Words account, sign in with the same email and password: it moves over by itself (see Accounts).
-- **A recovery key.** When your account's keys are made, the app shows a recovery key once. With it, a forgotten password no longer means losing what you synced. Forgot your password? Settings → Account → Forgot your password? emails a link.
+Without an account, drafts, ideas and settings stay in this browser (localStorage). ⋯ → Save a backup / Open a backup moves them by hand.
 
-## New in 3.1
+Signed in (Settings → Account, the same cristianbagrin.com account as Chris's other apps), each draft and idea syncs as its own encrypted record (`/api/vault/items`), and settings, the dictionary and the Gemini key sync as one encrypted document. Everything is encrypted in the browser (AES-256-GCM) with a data key that sits under the account's master key, which the password and the account's one recovery key open (`app/js/account-keyring.js`). The servers only ever hold ciphertext.
 
-- **The bench.** A quiet row under the page: the draft's format, Review, the Lab, Trim, a challenge, and Post. Icons only; each says its name and shortcut when you rest on it. Its × (or Settings → Look) puts it away; the palette's "Show the bench" brings it back.
-- **Shortcuts you can change.** F12 (Ctrl+Shift+/ off a Mac) opens the list. Click any shortcut and press the keys you want; Backspace clears it, Esc cancels, and the arrow beside a changed one puts the default back. They're saved with your settings. Defaults on a Mac: ⌘U underline, ⌘⌥4 to-do, ⌘⌥5 bullets, ⌘⌥6 numbers, ⌘⌥7 toggle, ⌘G ghost, ⌘⇧J Ask AI, ⌃N add a note, ⌘⇧H highlight in the last color, ⌃⇧J alternatives from AI, ⌃⇧R roll a challenge. The code is in `app/js/keys.js`.
-- **The bar over a selection** is five icons: Ask AI, Alternatives, Add a note, Ghost it, Stash in Overflow. Bold, italic, underline, strikethrough, code, link, color and Turn into are in its ⋯.
-- **Underline** (`++text++` in the saved text, underline in Notion) and **toggle lists**: a toggle hides the lines under it up to the next blank line, heading, divider or toggle. Click its arrow, or ⌘⇧↩.
-- **Links** show a card when you rest on them or click them: open, copy, edit, remove. ⌘-click opens one straight away.
-- **Undo reaches further.** ⌘Z works from anywhere on the page and also takes back a format or budget change, a stage, the backspace switch, an ignored note and a deleted draft, in the order they happened.
-- **Threads** is a format (500 characters a post, chained like X), and the palette and bench post to X, Threads or LinkedIn.
-- **The gutter shows only what is extra.** What each whole paragraph costs is a setting (Settings → Writing), off by default.
-- **Effects** (Settings → Look, and Sound → Desk sounds). Words cut by a fix burst into letters and the saving flies to the spend; Trim reads down the page and strikes its cuts in turn; rolling a challenge spins a reel and a red pencil rings what you got; a challenge met is stamped. Reduce Motion turns the movement off.
+- Merges go field by field over what both sides last synced. When two devices rewrote the same text, this device's version stays and the other one goes into Overflow.
+- Deleting leaves a tombstone, so the deletion syncs and Undo works; it's gone for good after 30 days.
+- A draft over the size cap won't sync, and the app says so: split it into parts.
+- On an iPhone, the Home Screen app has its own storage: sign in there too.
 
-## Reviewing
-
-- **⌘E** (or the palette's Review this draft) turns the review on and off. The text doesn't move a pixel.
-- **What is extra** stands in the left gutter, in red pencil: the words a paragraph's notes would cut ("$20 extra"). Rest on the figure and those words and their notes light up. Settings → Writing can add what the whole paragraph costs above it.
-- **Every note says what fixing it saves.** Wordy phrases, adverbs and weakeners are counted exactly ("in order to" → "to" saves $20). Long sentences and passive voice are estimated and shown with a ~: a hard sentence usually loses about a fifth of its words when it's tightened, a very hard one about a third, and active voice drops the helper verb (and "by" when the doer is named). Inside a long sentence the paragraph counts the sentence's estimate or the smaller fixes in it, whichever is bigger, not both. Opening a note explains its estimate.
-- **× on a note** ignores that one note in that draft, with Undo. It comes back only if the sentence is rewritten; the palette brings all ignored notes back. "Hide weakeners" (and the like) in an opened note hides a whole kind.
-- **The grade** at the head of the margin opens a ruler on hover: "written for an 11-year-old", the draft's mark on a scale from 1 to 16, a dot per paragraph (rest on one and its paragraph lights up), and a children's novel, everyday adult reading, a broadsheet and an academic paper for comparison.
-- **Pencil or highlighter.** Marks are pencil by default: underlines and gutter brackets. Highlighter is a light, hand-drawn band in a color per kind. Switch in Settings → Look, the palette's Review marks, or the two small buttons at the head of the margin.
-- **Drafts** is a sidebar like Notion's: rest the pointer on the left edge, or click the title (⌘O) to keep it open. Group, sort and filter it; click any property chip to change it.
-
-On a phone, notes become chips under their paragraph, and a tap opens them in a sheet.
-
-## The editor, like Notion
-
-Version 2.1 makes the page work like Notion's: every line is a block you can grab, turn into something else, color, comment on, or ask the AI about.
-
-- **Block handles.** Hover a block: a **+** and a grip (⋮⋮) appear in the left margin. **+** adds a block under it and opens the command menu (Alt+click adds one above). Drag the grip to move the block, or the selected blocks; a blue line shows where it lands. Click the grip for the block menu: Turn into, Color, Ask AI, Alternatives for this paragraph, Add a note, Duplicate, Move up, Move down, Delete.
-- **The "/" menu.** Type **/** at the start of a block or after a space: Text, Heading 1–3, Bulleted list, Numbered list, To-do list, Quote, Divider, Ask AI, Alternatives, Note, and every color ("/red", "/yellow back"). Keep typing to filter, ↑/↓ to choose, Return or Tab to run, Esc to close. The empty line you're on says "Type '/' for commands".
-- **The bar over a selection.** Select text and a bar of icons appears above it: Ask AI, Alternatives, Add a note, Ghost it, Stash in Overflow, and ⋯ for formatting, color and Turn into. On a phone it sits under the selection, out of the way of the phone's own menu.
-- **Keys.** ⌘⇧↑/↓ moves the block, ⌘D duplicates it, ⌘A selects the block (again for everything). `"` and a space starts a quote. A link pasted over selected text links it.
-- **Backspace** at the start of a heading, list item, to-do or quote turns it back into text, on the first line too (Safari used to ignore it there), and with No backspace on, since nothing is deleted.
-
-### Colors
-Select text and pick a text color or a background from the bar's **A**, the block menu's Color (the whole block), or the "/" menu. **⌘⇧H** colors the selection with the last color you used, and again takes it off. They're Notion's colors, and they sync both ways: a color set in Notion shows here, and one set here shows in Notion. Gray text stays reserved for ghosts. Colors that were already in your Notion pages are kept: the app reads them once as highlights before it manages them.
-
-### Notes for future you
-Select some words and add a note: the bar's speech mark, **⌃N**, right-click → Add a note, or "/note". The words get a yellow underline and a speech mark in the right margin; click either to open the note. Every note is a to-do you can tick off. If you delete the words, the note stays, pinned where they were. **⌃N** with nothing selected opens the Notes panel: Open, Done or All, and a click takes you to the note. Notes stay out of Notion's text and out of the counts; signed in, your account carries them to your other devices.
-
-### Talk to the AI about a passage
-Select text and press **✦ Ask AI** (or **⌘⇧J**, or "/ai"). Type what you want, like a comment in a design tool: "other ways to say this", "make it punchier", "is this clear?", or tap one of the suggestions. The AI answers in a thread on that text, and when it suggests wording, its versions join the text's **alternatives**: click one in the thread to put it on the page, or flip through them in place with ↑/↓ (A/B, Jason Fried's way), and "Back to the original" returns. Reply to keep going. It never changes the page by itself, and the thread stays as a note you can come back to.
-
-## The writing desk
-
-Version 2 adds the ideas in Jason Fried's demo of his own writing tool (`docs/PLAN-v4.md`). The rule behind all of them: the tool marks, suggests and keeps things; it never rewrites your text unless you pick the words. Nothing you set aside is lost, and ⌘Z undoes all of it.
-
-### Alternatives
-Any word, sentence or paragraph (the title too) can carry other versions of itself.
-
-- Select some text, or put the caret on a word, and press **Ctrl+Shift+A** (or right-click → Alternatives for selection). The panel opens on the left with **Word · Sentence · Paragraph** tabs; switching tabs moves to the sentence or paragraph around the same spot. The rest of the page dims.
-- Type a new version in the empty row: the page changes as you type, so you read it in place. **Return** adds it, **Esc** closes and keeps what's on the page. **↑/↓** in the list tries each one in the sentence.
-- A small square marks your versions, a robot the AI's, and a filled dot the one on the page.
-- Type **??** as an entry (or **⌃⇧J**) and the AI adds more. It reads the sentence and paragraph around the text, so it's not a thesaurus. ⌘Z takes them back.
-- **Backspace** on an empty row, or **⌘⌫** on any row, removes that version. When only the original is left, the underline goes.
-- In the page, text with alternatives has a faint squiggle and a row of tiny dots under its end, one per version. The filled dot is the one showing; if it isn't the first, you're on a variation. A paragraph shows a thin line in the margin instead. Hover over it and press **↑/↓** to flip through the versions, or use **⌥↑/⌥↓** with the caret inside. Click the dots to open the list.
-- **a/an** follows the swap: "a paperclip" becomes "an eraser" (and "an hour", "a unicorn", "an FAQ").
-- The AI options in Edit-mode tips (simpler sentence, active voice, stronger word) now join the alternatives instead of replacing your text.
-- Notion only gets the version on the page. Signed in, the account carries the rest to your other devices. If an edit in Notion removes the text an alternative was on, its versions go to Overflow as one line, so nothing is lost.
-
-### Ghost it
-Select text and press **⌘G** (or right-click → Ghost it). It fades to about a tenth and stays in the draft, so you can see the paragraph without it. **⌘G** again (or right-click → Revive) brings it back. Ghosted text doesn't count: not in the words, the dollars, the readability grade, the fold, X's count, copying for a platform, saving a file or posting. It works with No backspace on, since nothing is deleted. In Notion, ghosted text is gray, and gray text from Notion comes back ghosted.
-
-### Overflow
-A panel on the right for writing you want nearby but not in the draft: cut passages, notes, links, words you like, an outline. Open it with the button at the bottom right or **Ctrl+Shift+O**.
-
-- **Stash this in Overflow** (**Ctrl+Shift+X**, or right-click) moves the selection, or the paragraph the caret is in, out of the page and onto the top of Overflow. It works with No backspace on, since nothing is lost, and ⌘Z brings it back.
-- To use something from it, put the caret on a paragraph in Overflow and press **Ctrl+Return** to insert it at the page's caret, or drag a selection into the page.
-- It doesn't count toward words or dollars and isn't spellchecked. Each draft has its own.
-- In Notion it's one collapsed toggle titled "Overflow" at the bottom of the page, synced both ways. It's never part of the post's text.
-
-### The Lab
-The palette's Review group (**Ctrl+Shift+L**) lists checks that only mark text and never rewrite it: fix punctuation and typos (each mark offers its one fix when you click it), the weakest sentences, sentences that run long, convoluted sentences, words that don't fit the tone, hedges and filler, and Check the message. Each mark gets a note in the margin with the reason. Esc or Done clears the marks. Long sentences, hedges and spelling work without an AI key; the rest use Gemini.
-
-**Trim:** Slight trim (~10%), Tighten more (~20%), Even sharper (~30%) or Cut in half (~50%). The AI dims what it would cut, and only cuts; it never rewrites. A card in the margin shows the word count before and after. Click a faded passage to keep it. **Make the cuts** removes the rest in one undo step, **Walk through** goes cut by cut (Return or Y cuts, Backspace or N keeps), and **Done** or **Original** leaves the text as it was. Trim replaces "Cut the cost".
-
-Settings → Writing turns each kind of review note on or off.
-
-### Writing challenges
-The palette's Challenge group makes writing a game. **Roll** picks one, **Roll a combo** stacks two or three that fit together, **Pick** lists them all, and **Today's challenge** is the same all day. Easy, Medium and Hard change the numbers. A card pinned at the foot of the margin checks each rule live and stamps "Challenge met" when they all pass. Challenges never stop you typing; they only check.
-
-- **Length and money:** exact change (land on the budget exactly), a six-word story, a 100-word drabble, tweet size, Half price (the budget halves and you cut to fit), Inflation (the budget drops $10 a minute).
-- **Sentences:** short fuse, rhythm, a 1-word plus a short plus a long sentence, no two sentences starting the same, alphabet, questions first, two-sentence paragraphs, a hook in 8 words.
-- **Words and grade:** grade 5, plain English, no adverbs, no weasel words, active voice only, E-Prime (no "to be"), one syllable, a lipogram, no sentence starting with "I", 3 random words, earning one rare ten-dollar word.
-- **Time:** a sprint, 10 minutes with No backspace forced on, Don't stop (pause 5 seconds and your last sentence ghosts itself).
-- **Adapted to your piece, with AI:** ban the obvious words, jargon jail, surprise words, an analogy from a rolled field, write toward a given last line, start in the middle, argue the other side first, explain it to a 10-year-old, a skeptic's question after each paragraph, show don't claim, one personal story, a contrarian title, a genre swap, five hooks judged blind, and write to one person. With an empty draft, it asks what the piece is about first.
-
-A quiet streak counts the days in a row you met one. The challenge on a draft travels with it through the account; the streak and difficulty stay in this browser.
-
-### The right-click menu
-Right-click the page for Alternatives for selection, AI alternatives for selection, Ghost it / Revive, Stash this in Overflow, plus Cut, Copy and Paste. Shift+right-click gives the browser's own menu. On a touch screen, a small ⋯ button appears by the selection.
-
-### Around the page
-- The spine: the title (opens Drafts), the Notion stage, the spend against the budget (click it for words, characters, reading time and budget presets), and ⋯ for the palette. A dot after the spend shows only when sync needs you.
-- The palette's Share group: **save** the draft as a Markdown file (ghosts left out, each alternative as it is on the page), **open** a `.md` or `.txt` file as a new draft, **save a backup** of everything this browser keeps and **open a backup** in another browser (see Moving to the new address), and **post to X** (**Ctrl+Shift+P**), which opens X's composer with the text the way X shows it. For a thread it opens the first post and copies the rest. There's no LinkedIn button, on purpose.
-- The palette's Shortcuts (or **Ctrl+?**) lists every shortcut.
-- The Ctrl shortcuts are Ctrl on a Mac too, so they don't clash with ⌘. Where a browser keeps Ctrl+Shift+A for itself, Alt+Shift+A and Alt+Shift+G work too. On Windows, strikethrough is Ctrl+Shift+S only, because Ctrl+Shift+X stashes.
-
-## Run it locally
-
-From this folder, run `node tools/dev-server.mjs` in Terminal, then open http://127.0.0.1:8765/. It serves the app and the vault; what it stores lives in memory until you stop it (add `--db some-folder` to keep it, after `npm install`).
-
-For the real thing, the Worker itself: `npm install` once, then `npm run dev` and open http://127.0.0.1:8787/. Records are kept in a local D1 database under `.wrangler/`.
-
-Signing in needs the account service. To test without touching the real one, run it on this computer (in the cristianbagrin site's `site/` folder: `npx wrangler dev --port 8790`), copy `.dev.vars.example` to `.dev.vars` (it points `DEV_ACCOUNT_API` there), or pass `--account-api http://127.0.0.1:8790/api/` to the dev server. Then, in the page's console: `localStorage.setItem('tdw.dev.accountApi', '/api/dev-account/')` and reload. The app only reads that setting on 127.0.0.1 or localhost, and the Worker only forwards when `DEV_ACCOUNT_API` is set, which production never has.
-
-`python3 -m http.server 8765 --directory app` still works for everything except accounts. (The Run button in `.claude/launch.json` can fail with "Operation not permitted", because macOS blocks the app's python3 from reading iCloud Drive. Use the Terminal command instead.)
-
-Run the tests with `npm test` (or `node --test tests/`) from this folder. Run `npm install` once first to include the tests against a real local D1 database; without it, those are skipped.
-
-## Get a Gemini key
-
-1. Go to https://aistudio.google.com/apikey and create a free key.
-2. In the app, open Settings (the sliders icon), paste the key under "AI help (Gemini)", and press "Save and test". The app tries the newest Flash models and keeps the first one that answers.
-3. Leave Model on **Automatic**. It uses the newest Flash model, checks once a week for a newer one, and falls back to backups when Google is busy (503) or retires a model (404): the Flash alias, the next best Flash models, then a Lite model. Pick a model from the list only if you want to pin one. The list hides models that can't write text (speech, image, robotics…).
-
-The key is kept in this browser (localStorage) and is only ever used with Google. Signed out, you enter it once per browser and web address: it survives restarts and updates, and goes away only if you clear this site's data, remove the key in Settings, or (in Safari) leave the site unused for weeks. Signed in, your account keeps an encrypted copy, so any browser you sign in to has it. The same is true of the Notion secret. On the free tier, Google may use what you send to improve its products, so keep private client work out or use a paid key.
-
-## Sync with Notion
-
-1. Go to https://www.notion.so/profile/integrations, create an internal integration, and copy its secret (it starts with `ntn_`).
-2. In Notion, open your posts database, click ••• → Connections, and add the integration.
-3. In the app, open Settings → Notion sync, paste the secret and the database link, and press Connect.
-
-Every page in the database shows up as a draft, and every draft with text becomes a page. Text, formatting, deletions, the title and the other properties sync both ways, about every 5 seconds while the app is open. Set Stage, Pillar, Date and the rest from the chips under each draft in the Drafts drawer. Options added in Notion show up within a minute. Text maps to Notion blocks line by line (see Formatting below). Blocks the app can't edit (images, callouts, tables…) show as a locked line like `⟦image⟧`; delete the whole line to delete the block. Mentions, colors and underlines you don't touch stay as they are.
-
-A draft's title is its first sentence; that's what Notion's Name gets and what the Drafts drawer shows. A page that has only a title in Notion keeps it until it gets some text. In the Drafts drawer, click a draft's title to open its page in Notion, or anywhere else on the row to open it here.
-
-If you edit the same paragraph here and in Notion at the same time, this app wins. Only one browser tab syncs at a time: the one you're looking at. The others say "Syncing in another tab" and send your edits through it. When you switch tabs or windows, syncing follows you as soon as the other tab has finished sending what it started.
-
-An empty draft that never reached Notion is removed when you open or start another one, so the Drafts drawer doesn't fill up with "Untitled draft".
-
-To use a different database, press Disconnect, then Connect with the new link (the same secret works if the new database is connected to the same integration). Drafts from the old database stay in the app as local copies but aren't copied into the new one; its pages stay in Notion. The app reads each database's properties when it connects, so any database with a title works; the chips follow whatever properties it has. Signed in, the switch reaches your other devices too.
-
-## Accounts
-
-Settings → Account → Sign in, with your cristianbagrin.com account (or Create account for a new one). It's the same account as Chinese Brain, At Peace and Money in Order. Then sign in on any other browser (your phone, a second computer) and it's set up: the Notion secret and database, the Gemini key and model, every setting, your dictionary, and each Notion draft's format, budget, message and backspace switch, which Notion doesn't keep. Change something on one device and the others pick it up when you next bring the app to the front (or within 5 minutes). The drafts themselves travel through Notion, as before.
-
-- **End-to-end encrypted.** What syncs is encrypted in your browser (AES-256-GCM) with a random data key made on your first device. The servers store only encrypted data: this app's server keeps the encrypted document, and the account service keeps the data key wrapped under your account's master key, which is itself wrapped twice: once with a key made from your password (PBKDF2, 600,000 rounds, a random salt) and once with your account's recovery key. The account service sees your password when you sign in, to check it, but never stores it, and it has no key to your data. The password never goes to this app's server.
-- **Your recovery key** (26 letters and numbers) is one for your whole cristianbagrin.com account, in every app. It's shown once, when your account's keys are made (by whichever app needs them first): copy it or download it, and keep it somewhere safe, like a password manager. Settings → Account → Recovery key, or your account page, makes a new one (the old one stops working everywhere).
-- **Forgot your password?** Settings → Account → Forgot your password? emails a link to set a new one. Then sign in with it: a browser that's still signed in carries on and asks for the new password once, quietly; a new browser asks for your recovery key once. Lose the password, the recovery key and every signed-in device, and the synced data can't be opened by anyone. What's on each device stays, and "Start fresh" makes new keys.
-- **Changing your password** (Settings → Account, or on account.cristianbagrin.com) changes it for the whole account and signs your other devices out of it. They keep syncing and ask for the new password once.
-- **Signing out** takes your keys and Notion connection out of that browser. Drafts stay. **Remove synced data** deletes what Ten Dollar Words keeps in the account and stops every browser syncing it; each browser keeps what it has. To delete the account itself, use account.cristianbagrin.com.
-- **Moving from an old Ten Dollar Words account** (before 4.0): sign in with the same email and password. The app opens the old account one last time, makes your cristianbagrin.com account with the same password (or asks for that account's password if you already have one), shows your recovery key, merges the old document into the new storage field by field, reads it back and checks every field arrived, and only then retires the old account. A retired account no longer signs in, but its record stays on the server for now. A browser that was signed in to the old account keeps what it hadn't sent yet and merges it in at the next sign-in.
-- On an iPhone, the app added to the Home Screen has its own storage, separate from Safari's, so sign in there too.
+**Coming from Notion:** Settings → Account → Import from Notion copies every page of a database (text, formatting, colors, properties, subpages as parts) once, then forgets the Notion secret. Running it twice is safe. The Notion code (`notion*.js`, `sync.js`) is only there for the import and goes in a later release.
 
 ## On a phone
 
-The app notices a phone, in the browser or from the Home Screen, and switches to phone words and controls:
+Swipe from near the left edge for the drafts drawer (swipe back or tap beside it to close); its buttons sit at the bottom. The bench carries Review, the Lab, Trim, ideas and the format. While reviewing, notes are chips under their paragraph that open in a sheet. Inputs are 16px, so the page never zooms.
 
-- Settings lists typing shortcuts (`#`, `-`, `1.`, `[]`, `>`, `---`, `**bold**`) instead of keyboard shortcuts, and first-run tips say tap, not click or ⌘.
-- X threads get a **+ New post** button under the last post (there's no ⌘↩ on a phone). Typing `---` on a new line also works, even after the iPhone turns `--` into a dash.
-- Tap the dollar amount for the word count, characters and reading time (there's no hover).
-- While reviewing, notes are chips under their paragraph; a tap opens them in a sheet at the bottom. Drag it up or flick it down.
-- Tips and messages move above the on-screen keyboard.
-- The account's Settings suggest setting up Notion and Gemini on a computer and signing in on the phone, which is quicker than copying keys on a small screen.
-- Silent mode mutes the typing sounds on an iPhone; Settings says so.
+## Run it locally
 
-## Look
+```
+npm install                       # once (set npm_config_cache=~/Library/Caches/claude-npm on Chris's Mac)
+npx wrangler d1 migrations apply tendollarwords --local
+npx wrangler dev --port 8790 --ip 127.0.0.1
+```
 
-Settings → Look picks Light, Dark or System, the page font (Source Serif, or Courier Prime for the old typewriter) and the review marks (pencil or highlighter). Old skins map over: Night desk becomes Dark, the rest System. The app also follows your system's reduce motion, reduce transparency and increase contrast settings.
+Then http://127.0.0.1:8790/ (the website) and http://127.0.0.1:8790/dashboard (the app). Copy `.dev.vars.example` to `.dev.vars` for the `/edit` password and a local account service. To sign in without the real account service, run cristianbagrin's `site/` on this computer, point `DEV_ACCOUNT_API` at it, and in the console: `localStorage.setItem('tdw.dev.accountApi', '/api/dev-account/')`.
 
-## Budget
+`node tools/dev-server.mjs` serves just the app (at `/`) with an in-memory vault, for quick work without wrangler.
 
-Click the spend in the spine to change the budget. The presets are words × $10 for common lengths: $500 (an X post), $1,000 (a short LinkedIn post), $2,000 (a typical LinkedIn post), $3,000 (a long post or a thread), $8,000 (a newsletter), $15,000 (a long essay).
+Tests: `npm test`.
 
-## No backspace
+## Ship an update
 
-**No backspace** (in the palette) blocks backspace, delete, cut and typing over a selection for the open draft while you write; reviewing can always delete. When a draft's Stage says "no backspace", the switch turns on by itself (turn that off in Settings → Writing), and a new Stage decides again.
-
-## Formatting
-
-Formatting works like Notion: you see bold words and headings, never the markup behind them.
-
-- **As you type:** `# `, `## `, `### ` make headings; `- ` a bullet; `1. ` a numbered list; `[]` a checkbox (click the box to tick it); `> ` a quote; `---` a divider. `**bold**`, `*italic*`, `~strike~` and `` `code` `` turn into formatting when you close them. ⌘Z right after undoes the conversion.
-- **Shortcuts (Ctrl on Windows):** ⌘B bold, ⌘I italic, ⌘⇧S strikethrough, ⌘⌥1, ⌘⌥2, ⌘⌥3 headings (again to undo), ⌘⌥0 plain text, ⌘⇧7 numbered list, ⌘⇧8 bullets, ⌘⇧9 checkbox, ⌘K link (works on a whole paragraph too).
-- Enter continues a list; Enter on an empty item ends it. Backspace at the start of a heading or list item turns it back into text.
-- Pasting from Notion, Google Docs or the web keeps headings, lists, bold, italics and links. Copying from Basic or Substack gives clean text plus rich text; from LinkedIn and X, see Formats.
-- In Notion all of these are real formatting, both ways. Behind the scenes a draft is saved as markdown.
-
-Each line is a paragraph, with space after it; a blank line makes a bigger gap.
-
-## Formats
-
-The palette's Format group (Basic, LinkedIn, X, Substack) only sets the line length, so line breaks land close to where they will when the post goes out: LinkedIn 52 characters, X 43, Substack 70 (exact with the Courier Prime page font). Each format has its own default budget, and Settings → Writing → "New drafts use" picks the format for new drafts. The format is saved with the draft but isn't sent to Notion; signed in, your account carries it to your other devices.
-
-**Copying** gives you what the platform will show. From LinkedIn and X, markdown disappears and bold and italics become Unicode bold and italic letters (𝗯𝗼𝗹𝗱, 𝘪𝘵𝘢𝘭𝘪𝘤), since those sites have no formatting of their own; headings become bold lines. From Basic and Substack, the copy carries rich text too, so Substack keeps headings, bold and links.
-
-- **LinkedIn (while reviewing):** ticks in the text show where "…see more" cuts in: a solid tick for a phone (about 140 characters or 3 lines) and a dashed one for a computer (about 210 characters or 3 lines), whichever comes first. The app lays the post out the way LinkedIn does, in the system font at the feed's width, so blank lines and line wraps count the way they will there. Text past 3,000 characters gets a faint red tint.
-- **X threads:** every post sits in its own window, always, with its word count and X's own character count (links count 23, emoji 2, Unicode bold 2 per letter). ⌘↩ (Ctrl+↩) starts a new post at the caret. Backspace at the top of a post joins it to the one above, and an empty post just disappears. Click a post's number to select it, ready to copy. Anything past 280 is tinted while reviewing. In Notion, posts are separated by divider blocks.
-
-Hover over the dollar amount for the word count, characters and reading time.
-
-## Spelling
-
-The review underlines unknown words in red pencil. Open its note for fixes, or "Add to dictionary" to stop flagging it; Settings → Writing lists the words you've added. Names in the middle of a sentence, acronyms, links, @handles and #hashtags are skipped. The word list is built from SCOWL (license in `app/dict/LICENSE-SCOWL.txt`); `tools/build-dict.mjs` rebuilds it.
+1. Bump `APP_VERSION` in `app/js/app.js`, `VERSION` in `app/sw.js` and every `?v=` in `app/index.html` together (`tests/version.test.js` checks). A new file also goes in `PRECACHE` in `sw.js`.
+2. Update `app/site/whats-new.html`.
+3. `npm test`, then push `main`: Cloudflare Workers Builds runs `npm run deploy` (D1 migrations, then `wrangler deploy`). By hand on Chris's Mac: `set -a; source ~/.cloudflare-deploy.env; set +a; npm run deploy`.
+4. The Worker needs the `EDIT_KEY` secret once: `npx wrangler secret put EDIT_KEY`.
+5. Check https://tendollarwords.cristianbagrin.com/whats-new and `/dashboard` show the new version (Settings → About).
 
 ## Files
 
 ```
-./
-  docs/DESIGN.md           the Margin design: tokens, layout, and where every feature lives
-  docs/PLAN.md … PLAN-v5-redesign.md   the build plans and design decisions (PLAN-v4-challenges.md: the challenge list)
-  README.md                this file
-  wrangler.jsonc           the Cloudflare Worker: app/ as static files, /api/* to the Worker, the D1 database
-  package.json             wrangler (to run and deploy the Worker) and the npm scripts
-  .dev.vars.example        settings for wrangler dev (copy to .dev.vars): the local account service
-  worker/
-    index.mjs              the Worker: /api/vault/* and /api/account/*, everything else from app/
-    vault-api.mjs          the encrypted synced document, at an address made from the data key; D1 storage
-    account-api.mjs        the old accounts (before 4.0), kept so people can move: status and retire
-  migrations/              the D1 database's table
-  scripts/migrate-from-netlify.mjs   moves the accounts from Netlify Blobs to D1, and checks the move
-  tests/                   node tests (engine, formatting, formats, Notion mapping, spelling, the vault, the account API),
-                           plus fake-notion.mjs, a local stand-in for the Notion API used for sync stress tests
-  tools/build-dict.mjs     rebuilds app/dict/en-us.txt
-  tools/dev-server.mjs     the app plus the account API on this computer
-  tools/design-tour.mjs    screenshots of about 40 fixed states on a computer and a phone (tour-hooks.mjs: how it reaches them)
-  app/                     the website (this is what gets deployed)
-    index.html             page markup
-    manifest.webmanifest   install-as-app settings
-    sw.js                  service worker (offline use)
-    _headers               security headers (Cloudflare reads this file)
-    css/base.css           tokens (color, type, spacing, motion), light and dark, buttons, menus
-    css/page.css           the page, the post formats, marks (pencil and highlighter), the gutter's costs
-    css/margin.css         the margin: review notes, the grade ruler, cards
-    css/surfaces.css       the spine, palette, drafts sidebar, sheets, Settings
-    dict/                  the spelling word list and its license
-    icons/                 app icons (SVG and PNG)
-    js/data.js             word lists
-    js/inline.js           markdown-lite: block markers and bold, italic, strike, code, links
-    js/engine.js           readability engine (grade, sentences, highlights, spelling)
-    js/spell.js            spellchecker and personal dictionary
-    js/notion-map.js       Notion blocks to draft lines and back
-    js/sound.js            typing sounds, synthesized in the browser
-    js/store.js            drafts and settings in localStorage
-    js/ai.js               Gemini client and prompts
-    js/ai-mock.js          fake AI for tests (switched on from JS only)
-    js/notion.js           Notion API client
-    js/sync.js             two-way sync with Notion
-    js/vault.js            encrypting the synced document, and merging two copies (and the old accounts' keys)
-    js/account-keyring.js  the account's master key and its one recovery key (shared with every app)
-    js/keyring.js          the data key, wrapped by the account's master key; what it opens
-    js/account.js          signing in, the move from old accounts, and keeping keys, settings and draft formats in step
-    js/editor.js           the editor: one line per paragraph, its own undo, X post windows, the fold
-    js/ui.js               shared helpers: phone or computer, Mac or not, elements, toasts, money, icons, toggles, menus
-    js/formats.js          post formats: what each platform shows, X counting, the LinkedIn fold
-    js/spine.js            the bar over the page: title, stage, spend, sync, ⋯
-    js/margin.js           the right margin: views (Review, Notes, Overflow), pinned cards, the phone sheet
-    js/review.js           review notes, what fixes save (exact and estimated), the gutter's costs, the grade ruler
-    js/palette.js          the command palette (⌘K)
-    js/drafts.js           the drafts sidebar: grouping, sorting, filters, Notion property chips
-    js/dialogs.js          Settings
-    js/marks.js            alternatives, ghosts, colors and notes over the text: following edits, a/an, swapping (pure, tested)
-    js/alts.js             the alternatives panel, cycling in place, AI alternatives
-    js/menu.js             the right-click menu, Ghost it, Stash this in Overflow
-    js/overflow.js         the Overflow panel
-    js/lab.js              the Lab and Trim
-    js/challenges.js       writing challenges: the catalog and its checks (pure, tested)
-    js/challenge-ui.js     the challenge picker and card
-    js/desk.js             save/open/post to X, the shortcut list
-    js/blocks.js           Notion-style blocks: the handle, dragging, the block menu, the "/" menu
-    js/bubble.js           the bar over a selection
-    js/notes.js            colors, notes, the Notes panel, and AI threads on a passage
-    js/app.js              state, events, startup (loads last)
+wrangler.jsonc          the Worker: app/ as static files; /api/*, the website's pages, /edit and /dashboard through the Worker
+worker/index.mjs        routes: /api/vault/*, /api/account/*, /api/copy, the website, /dashboard
+worker/vault-api.mjs    encrypted records in D1: the settings document and one record per draft or idea
+worker/account-api.mjs  the old (before 4.0) accounts, kept so people can move
+worker/site.mjs, copy.mjs   the website with Chris's /edit changes put in (a Durable Object keeps them)
+migrations/             the D1 tables
+tests/                  node tests (engine, Tidy, projects, store, sync, vault, site, version…)
+tools/                  dev-server.mjs, build-dict.mjs, sync-copy.mjs (lists /edit changes to fold in), design-tour.mjs
+docs/                   DESIGN.md, the plans (PLAN-v6.md is 5.0)
+app/
+  index.html            the app (served at /dashboard)
+  site/                 the website: home, how-it-works, whats-new, privacy, site.css/js, edit.js, shot.png
+  sw.js, manifest.webmanifest, _headers, icons/, img/, dict/
+  css/base.css          tokens (color, type, spacing, motion), light and dark, buttons, menus, toasts
+  css/page.css          the spine, the page, formats, marks, the gutter's costs
+  css/margin.css        review notes, the grade ruler, cards, Overflow
+  css/surfaces.css      dialogs and sheets, palette, drafts sidebar, ideas, properties, the reader, the bench
+  css/settings.css      Settings
+  js/store.js           drafts, ideas and settings in localStorage; projects (parentId, order); tombstones
+  js/items-sync.js      each draft and idea synced as its own encrypted record, merged field by field
+  js/vault.js, keyring.js, account-keyring.js, account.js   encryption, keys, sign-in, the synced settings
+  js/editor.js          the editor (one line per paragraph, its own undo, live Tidy, X post windows)
+  js/inline.js, engine.js, spell.js, data.js, marks.js, tidy.js, challenges.js, formats.js   pure logic (tested)
+  js/project.js         projects: the tree, drops, the manuscript, the project page, Read as one
+  js/drafts.js          the drafts and ideas sidebar (the phone's drawer), properties, Move to
+  js/ideas.js           catching ideas, the ideas list, turning one into a draft
+  js/spine.js, margin.js, review.js, palette.js, bench.js, dialogs.js, help.js, ui.js   the surfaces
+  js/alts.js, menu.js, overflow.js, lab.js, notes.js, blocks.js, bubble.js, links.js, fx.js, sound.js, desk.js, challenge-ui.js
+  js/ai.js, ai-mock.js  Gemini, and a fake for tests
+  js/notion*.js, sync.js   only for Import from Notion
+  js/app.js             state, events, startup (loads last)
 ```
-
-## Ship an update
-
-Bump `APP_VERSION` in `app/js/app.js`, `VERSION` in `app/sw.js`, and the `?v=` on every script and stylesheet in `index.html` together (for example `1.3.1`, `tdw-1.3.1`, `?v=1.3.1`). A new script also goes in the `PRECACHE` list in `sw.js`. The new service worker then replaces the old cache, and installed copies pick up the change. Deploy with `npm run deploy` (it brings the D1 table up to date, then runs `wrangler deploy`, which uploads `app/` and the Worker together). The service worker never caches `/api/`.
-
-## Moving to the new address
-
-The app used to live at tendollarwords.netlify.app. A browser keeps what it stores per web address, so the new address starts empty in every browser. What comes back by itself, and what needs a backup:
-
-- **Comes back when you sign in** at the new address: the Notion connection, the Gemini key and model, every setting, the dictionary, shortcuts, and each Notion draft's format, budget, message, alternatives, notes and challenge.
-- **Comes back through Notion**: every draft that is a Notion page, with its text, formatting, colors, ghosts and Overflow.
-- **Only in the old address's browser storage**: drafts that never went to Notion, edits that hadn't synced yet, ignored review notes, the challenge streak and difficulty, the drafts sidebar's view, the last highlight color. A backup carries these.
-
-To move everything: at the old address, ⋯ → **Save a backup** (the old address also offers this when it opens). At the new address, ⋯ → **Open a backup**, then sign in. Opening a backup only fills in what's missing and never replaces anything newer, so doing it twice is safe. The file holds your keys in plain text: delete it once it's opened. Do this in each browser you write in, and in the Home Screen app on a phone, which has storage of its own.
 
 ## Later
 
-Not built yet, on purpose:
-
-- Sign in with a passkey (Face ID or Touch ID) instead of a password.
-- Drafts that sync through the account for people who don't use Notion.
-- More than one Notion database at a time (say, business and personal writing).
-- Syncing drafts to a folder (Chrome's File System Access).
-- Claude as an alternative AI provider.
-- Focus mode that dims other sentences.
-- The redesign: the look of everything above is a working placeholder.
-- A receipt or print view.
-- Custom budget presets.
-- A grammar checker.
-- More sound profiles.
+- Sign in with a passkey.
+- Remove the Notion code once imports are done.
+- Export a project as .docx or EPUB.
+- A focus mode that dims the other sentences.

@@ -31,7 +31,9 @@ dialog.as-sheet .grabber { display: block; position: absolute; z-index: 3; top: 
 dialog.as-sheet .grabber::before { content: ""; position: absolute; top: 6px; left: 42px; width: 36px; height: 5px; border-radius: 3px; background: var(--rule-2); }
 @media (prefers-reduced-transparency: reduce) { dialog::backdrop { background: rgba(24, 28, 36, .35); } }
 
-/* ---------- The command palette ---------- */
+/* ---------- The command palette ----------
+   Opened from the keyboard many times a day: it appears and goes at once, no motion. */
+.palette:not(.as-sheet), .palette:not(.as-sheet)::backdrop { transition: none; animation: none; }
 .palette { width: min(580px, calc(100vw - 32px)); margin-top: 13vh; max-height: min(560px, 72vh); overflow: hidden; }
 .palette[open] { display: flex; flex-direction: column; }
 .pal-search { position: relative; flex: none; display: flex; align-items: center; gap: 10px; padding: 0 16px; border-bottom: 1px solid var(--rule); }
@@ -248,7 +250,7 @@ html.is-dragging-draft, html.is-dragging-draft * { cursor: grabbing !important; 
 .props-row { display: grid; grid-template-columns: 64px 1fr; align-items: center; gap: 10px; min-height: 38px; }
 .props-label { color: var(--ink-2); font-size: 12.5px; }
 .props-status .seg-opt { font-size: 12px; padding: 0 6px; }
-.props-date.props-date { height: 32px; width: auto; justify-self: start; padding: 0 8px; font-size: 14px; }
+.props-date.props-date { height: 32px; width: auto; justify-self: start; padding: 0 8px 0 10px; border: 0; border-radius: var(--r-sm); background: var(--hover); box-shadow: none; color: var(--ink); font: 500 13px/1 var(--font-ui); }
 .props-tags { display: flex; flex-wrap: wrap; gap: 4px; }
 .props-tags .chip { height: 26px; font-size: 12.5px; }
 .props-tags .chip.is-add { box-shadow: none; background: var(--hover); color: var(--ink-2); }
