@@ -1,7 +1,8 @@
 /* The bench: a quiet row under the page with what you reach for while a draft is open. Where it
    is going (the format), Review, the Lab's checks, Trim, a challenge, and posting it. Icons
-   only; each says its name when you rest on it. It steps back while you type, and Settings →
-   Look (or its own ×) puts it away. */
+   only. Every one works like a switch: pressed again, it puts away what it opened (its menu, the
+   review, a Lab check, Trim). It steps back while you type, and Settings → Look (or its own ×)
+   puts it away. */
 (function () {
   'use strict';
   const TDW = window.TDW = window.TDW || {};
@@ -9,14 +10,12 @@
   const { el, icon } = UI;
   const app = () => TDW.App;
 
-  let bar = null, fmtBtn = null, reviewBtn = null, diceBtn = null;
-  const tools = [];
+  let bar = null, fmtBtn = null, reviewBtn = null, diceBtn = null, labBtn = null, trimBtn = null;
 
-  function tool(ic, name, keyId, run) {
-    const b = el('button', { type: 'button', class: 'bench-btn tip-up', 'aria-label': name, 'aria-haspopup': run.menu ? 'menu' : null }, icon(ic));
+  function tool(ic, name, run) {
+    const b = el('button', { type: 'button', class: 'bench-btn', 'aria-label': name, 'aria-haspopup': run.menu ? 'menu' : null }, icon(ic));
     b.addEventListener('mousedown', (e) => e.preventDefault());
     b.addEventListener('click', () => run(b));
-    tools.push({ b, name, keyId });
     return b;
   }
   const up = { align: 'start' };
@@ -27,13 +26,17 @@
     UI.menu(b, Formats.LIST.map((f) => ({ label: f.label, value: f.key, checked: f.key === cur })), (it) => { app().setFormat(it.value); }, null, null, up);
   });
 
+  // A Lab check or Trim on the page: its button ends it. Otherwise it opens its menu.
+  const labKind = () => (TDW.Lab && TDW.Lab.isRunning() ? TDW.Lab.kind() : null);
   const labMenu = menuOf((b) => {
     const L = TDW.Lab;
+    if (labKind() && labKind() !== 'trim') { UI.closeMenu(); L.done(); return; }
     UI.menu(b, L.ITEMS.map((it) => ({ label: it.label, value: it.id })), (it) => { L.run(it.value); }, null, null, up);
   });
 
   const trimMenu = menuOf((b) => {
     const L = TDW.Lab;
+    if (labKind() === 'trim') { UI.closeMenu(); L.done(); return; }
     UI.menu(b, L.LEVELS.map((lv, k) => (k ? { label: lv.label, note: '~' + lv.pct + '%', value: k } : null)).filter(Boolean), (it) => { L.trim(it.value); }, null, null, up);
   });
 
@@ -80,23 +83,21 @@
   }
 
   function build() {
-    fmtBtn = el('button', { type: 'button', class: 'bench-format tip-up', 'aria-haspopup': 'menu', 'data-tip': 'Format' }, el('span'), icon('chevUp'));
+    fmtBtn = el('button', { type: 'button', class: 'bench-format', 'aria-haspopup': 'menu' }, el('span'), icon('chevUp'));
     fmtBtn.addEventListener('mousedown', (e) => e.preventDefault());
     fmtBtn.addEventListener('click', () => formatMenu(fmtBtn));
-    reviewBtn = tool('pencil', 'Review', 'review', () => app().toggleLens());
-    diceBtn = tool('dice', 'Challenge', null, challengeMenu);
-    const x = el('button', { type: 'button', class: 'bench-btn bench-x tip-up', 'aria-label': 'Hide the bench', 'data-tip': 'Hide' }, icon('close'));
+    reviewBtn = tool('pencil', 'Review', () => app().toggleLens());
+    labBtn = tool('flask', 'The Lab', labMenu);
+    trimBtn = tool('scissors', 'Trim', trimMenu);
+    diceBtn = tool('dice', 'Challenge', challengeMenu);
+    const x = el('button', { type: 'button', class: 'bench-btn bench-x', 'aria-label': 'Hide the bench' }, icon('close'));
     x.addEventListener('mousedown', (e) => e.preventDefault());
     x.addEventListener('click', hide);
     bar = el('div', { id: 'bench', class: 'bench', role: 'toolbar', 'aria-label': 'Bench' },
       fmtBtn, el('span', { class: 'bench-sep', 'aria-hidden': 'true' }),
-      reviewBtn, tool('flask', 'The Lab', null, labMenu), tool('scissors', 'Trim', null, trimMenu), diceBtn, tool('send', 'Post', null, postMenu), x);
+      reviewBtn, labBtn, trimBtn, diceBtn, tool('send', 'Post', postMenu), x);
     document.body.append(bar);
-    label();
-    TDW.Keys.onChange(label);
   }
-
-  function label() { for (const t of tools) t.b.dataset.tip = t.keyId ? TDW.Keys.tip(t.name, t.keyId) : t.name; }
 
   function render() {
     if (!bar) return;
@@ -106,6 +107,9 @@
     fmtBtn.firstChild.textContent = Formats.get(st.draft.format).label;
     reviewBtn.classList.toggle('is-on', st.mode === 'edit');
     reviewBtn.setAttribute('aria-pressed', String(st.mode === 'edit'));
+    const lab = labKind();
+    labBtn.classList.toggle('is-on', !!lab && lab !== 'trim');
+    trimBtn.classList.toggle('is-on', lab === 'trim');
     const info = TDW.Challenges && TDW.Challenges.info ? TDW.Challenges.info() : null;
     diceBtn.classList.toggle('is-on', !!(info && info.running));
   }

@@ -218,7 +218,7 @@
       groups = names.map((g) => el('section', { class: 'keys-group' }, el('h3', { text: g }),
         K().LIST.filter((a) => a.group === g).map((a) => el('div', { class: 'keys-row' }, el('span', { text: a.label }),
           el('span', { class: 'key-cell' },
-            K().isDefault(a.id) ? null : el('button', { type: 'button', class: 'key-reset', 'aria-label': 'Back to the default for ' + a.label, 'data-tip': 'Default', onclick: () => { K().set(a.id, null); saveKeys(); drawSheet(); } }, UI.icon('undo')),
+            K().isDefault(a.id) ? null : el('button', { type: 'button', class: 'key-reset', 'aria-label': 'Back to the default for ' + a.label, onclick: () => { K().set(a.id, null); saveKeys(); drawSheet(); } }, UI.icon('undo')),
             keyButton(a))))));
       groups.push(el('section', { class: 'keys-group' }, el('h3', { text: 'Fixed' }), FIXED.map(([k, what]) => el('div', { class: 'keys-row' }, el('span', { text: what }), UI.kbd(k)))));
     }

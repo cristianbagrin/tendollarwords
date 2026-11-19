@@ -29,20 +29,14 @@
     return b;
   }
 
-  function label() {
-    for (const [cls, , name, id] of MAIN) { const b = bar.querySelector('.' + cls); if (b) b.dataset.tip = TDW.Keys.tip(name, id); }
-  }
-
   function build() {
     bar = UI.el('div', { class: 'bubble', role: 'toolbar', 'aria-label': 'Selection', hidden: true });
     for (const [cls, ic, name, , run] of MAIN) bar.append(button(cls, ic, name, () => { hide(); run(); }));
     const more = button('bub-more', 'more', 'More', (e, b) => moreMenu(b));
-    more.dataset.tip = 'More';
+    more.setAttribute('aria-haspopup', 'menu');
     bar.append(UI.el('span', { class: 'bub-sep', 'aria-hidden': 'true' }), more);
     bar.addEventListener('pointerdown', (e) => e.preventDefault());
     document.body.append(bar);
-    label();
-    TDW.Keys.onChange(label);
   }
 
   function moreMenu(b) {

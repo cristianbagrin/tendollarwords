@@ -153,8 +153,7 @@
       const row = el('button', { type: 'button', class: 'rn-row', 'aria-expanded': 'false' });
       row.addEventListener('mousedown', (e) => e.preventDefault());
       row.addEventListener('click', () => toggleOpen(node._n.key, true));
-      const x = el('button', { type: 'button', class: 'rn-x', 'aria-label': 'Ignore this note', 'data-tip': 'Ignore' }, icon('close'));
-      x.classList.add('tip-end');
+      const x = el('button', { type: 'button', class: 'rn-x', 'aria-label': 'Ignore this note' }, icon('close'));
       x.addEventListener('mousedown', (e) => e.preventDefault());
       x.addEventListener('click', (e) => { e.stopPropagation(); ignore(node._n); });
       node.append(row, x);
@@ -174,7 +173,7 @@
       row.replaceChildren(el('span', { class: 'rn-kind', text: h.kind }), ' ', el('span', { class: 'rn-detail' }, h.detail));
       if (save > 0) {
         const est = saveIsEstimate(n.issue);
-        row.append(el('span', { class: 'rn-save' + (est ? ' is-est' : ''), text: (est ? '~' : '') + money(save), title: est ? ESTIMATE_WHY[n.issue.type].replace('{m}', money(save)) : 'Fixing this saves ' + money(save) }));
+        row.append(el('span', { class: 'rn-save' + (est ? ' is-est' : ''), text: (est ? '~' : '') + money(save) }));
       }
       row.setAttribute('aria-label', h.kind + ': ' + (typeof h.detail === 'string' ? h.detail : h.detail.textContent) + '. Open the note.');
     }
@@ -318,7 +317,7 @@
         if (!rc) continue;
         let c = costs[k];
         if (!c) {
-          c = el('span', { class: 'cost tip-end tip-up' }, el('span', { class: 'cost-amt' }), el('span', { class: 'cost-extra' }));
+          c = el('span', { class: 'cost' }, el('span', { class: 'cost-amt' }), el('span', { class: 'cost-extra' }));
           c.addEventListener('mouseenter', () => lightLine(c._line, true));
           c.addEventListener('mouseleave', () => lightLine(c._line, false));
           g.append(c);
@@ -331,7 +330,6 @@
         c.firstChild.hidden = !whole;
         c.lastChild.textContent = x ? about + money(x * 10) + ' extra' : '';
         c.classList.toggle('has-extra', x > 0);
-        if (about) c.dataset.tip = 'An estimate'; else delete c.dataset.tip;
         c.style.top = Math.round(rc.lineTop - sr.top) + 'px';
         c.style.setProperty('--lh', Math.round(rc.lh) + 'px');
         k++;
@@ -432,13 +430,12 @@
     grade.addEventListener('click', () => { if (gradeOpen && gradePinned) closeGrade(); else openGrade(true); });
     grade.addEventListener('keydown', (e) => { if (e.key === 'Escape' && gradeOpen) { e.preventDefault(); e.stopPropagation(); closeGrade(); } });
     const mk = (value, ic, label) => {
-      const b = el('button', { type: 'button', class: 'mh-mark', 'aria-label': label, 'data-tip': label, dataset: { value } }, icon(ic));
+      const b = el('button', { type: 'button', class: 'mh-mark', 'aria-label': label, dataset: { value } }, icon(ic));
       b.addEventListener('mousedown', (e) => e.preventDefault());
       b.addEventListener('click', () => app().updateSettings({ marks: value }));
       return b;
     };
     const marks = el('div', { class: 'mh-marks', role: 'group', 'aria-label': 'How fixes are marked' }, mk('pencil', 'pencil', 'Mark with pencil'), mk('highlighter', 'marker', 'Mark with highlighter'));
-    marks.lastChild.classList.add('tip-end');
     const changedEl = el('p', { class: 'mh-changed', hidden: true }, 'Changed. ', el('button', { type: 'button', class: 'mh-undo', text: 'Undo', onclick: () => { changedOn = false; Editor.undo(); drawSub(); } }));
     const check = el('button', { type: 'button', class: 'mh-action', onclick: startMessage }, icon('target'), el('span', { text: 'Check the message' }));
     check.addEventListener('mousedown', (e) => e.preventDefault());
@@ -519,7 +516,7 @@
       const col = Math.max(1, Math.min(RULER_MAX, p.grade));
       const level = stack.get(col) || 0;
       stack.set(col, level + 1);
-      const d = el('span', { class: 'gr-dot tip-up', style: '--x:' + xOf(col) + '%;--lv:' + Math.min(level, 5) + ';--i:' + k, 'data-tip': 'This paragraph: grade ' + p.grade });
+      const d = el('span', { class: 'gr-dot', role: 'img', 'aria-label': 'A paragraph at grade ' + p.grade, style: '--x:' + xOf(col) + '%;--lv:' + Math.min(level, 5) + ';--i:' + k });
       d.addEventListener('mouseenter', () => pointLine(p.line, true));
       d.addEventListener('mouseleave', () => pointLine(p.line, false));
       return d;
@@ -691,7 +688,7 @@
     changed(Math.max(0, Engine.countWords(i.text) - Engine.countWords(word)));
   }
 
-  const chip = (word, savedWords, onclick, note) => el('button', { type: 'button', class: 'fix', title: note || null, onclick },
+  const chip = (word, savedWords, onclick, note) => el('button', { type: 'button', class: 'fix', 'aria-label': note ? word + ', ' + note : null, onclick },
     el('span', { class: 'fix-word', text: word }), el('span', { class: 'fix-note', text: costNote(savedWords) }));
   const action = (label, onclick, ic) => el('button', { type: 'button', class: 'rn-act', onclick }, ic ? icon(ic) : null, el('span', { text: label }));
 
@@ -842,7 +839,7 @@
       fillAI(i, box);
       acts.append(box);
     }
-    const hide = el('button', { type: 'button', class: 'rn-hide', title: 'Stop marking ' + NAMES[i.type] + ' (Settings → Writing brings them back)' }, icon('eyeOff'), el('span', { text: 'Hide ' + NAMES[i.type] }));
+    const hide = el('button', { type: 'button', class: 'rn-hide' }, icon('eyeOff'), el('span', { text: 'Hide ' + NAMES[i.type] }));
     hide.addEventListener('click', () => {
       done();
       app().toggleHighlight(i.type);

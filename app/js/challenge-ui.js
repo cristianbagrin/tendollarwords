@@ -395,7 +395,7 @@
     }
     if (c.metAt) kids.push(el('div', { class: 'ch-stamp', text: 'Challenge met' }));
     const judgeable = c.items.some((it) => { const r = R().get(it.id); return r && r.ai && r.ai.includes('judge'); });
-    if (!c.metAt && !c.setup && judgeable) actions.push({ label: 'Judge it', primary: true, disabled: !!busy || !hasAI(), title: hasAI() ? null : 'Needs a Gemini key (Settings)', run: judge });
+    if (!c.metAt && !c.setup && judgeable) actions.push({ label: 'Judge it', primary: true, disabled: !!busy || !hasAI(), run: judge });
     if (!c.metAt && has(c, 'E9') && !c.setup) actions.push({ label: 'Ask the skeptic', disabled: !!busy || !hasAI(), run: skeptic });
     if (!c.metAt && has(c, 'E14')) actions.push({ label: 'Write openings', run: openHooks });
     actions.push({ label: c.metAt ? 'Done' : 'Give up', run: () => finish() });
