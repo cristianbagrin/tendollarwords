@@ -575,7 +575,9 @@
   let blockWarned = false;
 
   // A draft still being drafted is written forward: No backspace turns on by itself (a setting).
-  const stageSaysNo = (d) => !!d && d.status === 'drafting';
+  // As before 5.0: only a draft whose stage (now a tag, or its kept Notion properties) says "no backspace".
+  const saysNo = (v) => typeof v === 'string' && /no backspace/i.test(v);
+  const stageSaysNo = (d) => !!d && ((d.tags || []).some(saysNo) || Object.values(d.props || {}).some(saysNo));
 
   function backspaceOff(d) {
     if (!d) return false;

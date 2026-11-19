@@ -398,7 +398,7 @@
         { help: ['For Basic drafts. LinkedIn starts at $2,000, X at $500, Threads at $800, Substack at $8,000.', 'Each draft keeps its own: click the spend in the top right to change it.'] }),
         row('New drafts use', segmented({ label: 'New drafts use', value: TDW.Formats.get(s.defaultFormat).key, options: TDW.Formats.LIST.map((f) => ({ value: f.key, label: f.label })), onChange: (v) => update({ defaultFormat: v }) }), { class: 'has-seg' })),
       group(
-        switchRow('No backspace while drafting', !!s.noBackspace, (on) => update({ noBackspace: on }),
+        switchRow('No backspace when a draft is tagged “no backspace”', !!s.noBackspace, (on) => update({ noBackspace: on }),
           ['A draft whose status is Drafting turns the switch on by itself. The palette turns it on or off for any draft.']),
         switchRow('Show what each paragraph costs', !!s.paragraphCost, (on) => update({ paragraphCost: on }), 'In the gutter, above each paragraph. Off, the gutter shows only what is extra.'),
         switchRow('Keep the line you’re typing in the middle', !!s.typewriterScroll, (on) => update({ typewriterScroll: on }), 'While you write, not while you review.')),
