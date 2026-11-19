@@ -66,7 +66,6 @@
     stage.hidden = !st;
     if (st) {
       stage.replaceChildren(el('span', { class: 'stage-dot', style: 'background:' + (COLORS[st.color] || COLORS.gray) }), el('span', { text: st.value }));
-      stage.dataset.tip = st.name + '. Click to change';
       stage.dataset.prop = st.name;
       stage.setAttribute('aria-label', st.name + ': ' + st.value + '. Change');
     }
@@ -84,7 +83,6 @@
     ov.hidden = !over;
     ov.textContent = over ? money(tl.spent - tl.budget) + ' over' : '';
     spend.setAttribute('aria-label', 'Spent ' + money(tl.spent) + (over ? ', over the ' : ' of a ') + money(tl.budget) + ' budget. ' + countLine(tl) + '.');
-    spend.title = countLine(tl);
     if (shown === null || UI.reducedMotion()) { shown = tl.spent; drawAmount(shown); }
     else if (shown !== tl.spent) {
       if (tween) tween.stop();
@@ -106,7 +104,6 @@
     b.dataset.state = s.state || 'synced';
     const label = (SYNC_TEXT[s.state] || 'Notion') + (s.at ? ', last sync ' + UI.relTime(s.at) : '');
     b.setAttribute('aria-label', label);
-    b.title = label;
   }
 
   // Words just cut: the saving rises off the amount and fades.
@@ -163,7 +160,7 @@
         el('div', { class: 'tally-label', text: 'Budget for this draft' }),
         el('div', { class: 'presets', role: 'group', 'aria-label': 'Budgets' }, PRESETS.map((v) => el('button', {
           type: 'button', class: 'preset' + (v === tl.budget ? ' is-on' : ''), 'aria-pressed': String(v === tl.budget), text: money(v),
-          title: (v / 10) + ' words, ' + PRESET_NOTE[v], onclick: () => app().setBudget(v, true)
+          'aria-label': money(v) + ', ' + (v / 10) + ' words, ' + PRESET_NOTE[v], onclick: () => app().setBudget(v, true)
         }))),
         form),
       el('button', { type: 'button', class: 'tally-review', onclick: () => { UI.dismiss(dlg); app().toggleLens(); } },
@@ -197,11 +194,7 @@
   function init() {
     $('spine-title').append(icon('chevDown'));
     $('spine-more').append(icon('more'));
-    const tips = () => { $('spine-more').dataset.tip = TDW.Keys.tip('Commands', 'palette'); $('spine-title').dataset.tip = TDW.Keys.tip('Drafts', 'drafts'); };
-    $('spine-more').classList.add('tip-end');
-    tips();
-    TDW.Keys.onChange(tips);
-    nbBtn = el('button', { type: 'button', class: 'spine-nb', hidden: true, 'aria-label': 'No backspace is on. Turn it off', 'data-tip': 'No backspace' }, icon('backspace'));
+    nbBtn = el('button', { type: 'button', class: 'spine-nb', hidden: true, 'aria-label': 'No backspace is on. Turn it off' }, icon('backspace'));
     nbBtn.addEventListener('click', () => app().setBackspaceOff(false));
     $('spine-stage').after(nbBtn);
     for (const b of [$('spine-title'), $('spine-spend'), $('spine-more'), $('spine-sync'), nbBtn]) b.addEventListener('mousedown', (e) => e.preventDefault());

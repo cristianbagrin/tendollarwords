@@ -96,8 +96,16 @@
     head.append(el('div', { class: 'mh-row' }, list, close), sub);
   }
 
+  // The tab already showing, pressed again, closes its view.
   function pickTab(k) {
     const app = TDW.App;
+    if (k === view) {
+      if (k === 'review') { closeAll(); return; }
+      if (k === 'overflow' && TDW.Overflow) { TDW.Overflow.close(true); return; }
+      setView(app.state.mode === 'edit' ? 'review' : null);
+      Editor.focus();
+      return;
+    }
     if (k === 'review') { if (app.state.mode !== 'edit') app.setMode('edit'); else setView('review'); return; }
     if (k === 'notes' && TDW.Notes) { TDW.Notes.showAll(); return; }
     if (k === 'overflow' && TDW.Overflow) { TDW.Overflow.open(); return; }
@@ -171,7 +179,7 @@
     if (o.body) kids.push(el('div', { class: 'pcard-body' }, o.body));
     if (o.actions && o.actions.length) {
       kids.push(el('div', { class: 'pcard-actions' }, o.actions.map((a) => el('button', {
-        type: 'button', class: a.primary ? 'btn btn-sm' : 'btn-quiet btn-sm', text: a.label, disabled: !!a.disabled, title: a.title || null, onclick: a.run
+        type: 'button', class: a.primary ? 'btn btn-sm' : 'btn-quiet btn-sm', text: a.label, disabled: !!a.disabled, onclick: a.run
       }))));
     }
     if (keepFocus && o.body && o.body.contains(keepFocus)) { /* the body node carries its own input */ }

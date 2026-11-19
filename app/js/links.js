@@ -29,7 +29,7 @@
     if (!url) return;
     forEl = a;
     const btn = (name, ic, run) => {
-      const b = el('button', { type: 'button', class: 'link-act', 'aria-label': name, 'data-tip': name }, icon(ic));
+      const b = el('button', { type: 'button', class: 'link-act', 'aria-label': name }, icon(ic));
       b.addEventListener('mousedown', (e) => e.preventDefault());
       b.addEventListener('click', run);
       return b;

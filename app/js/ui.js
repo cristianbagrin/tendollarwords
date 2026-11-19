@@ -175,19 +175,96 @@
     const host = (!t.hidden && top && top.matches(':modal')) ? top : document.body;
     if (t.parentNode !== host) host.append(t);
   }
-  let toastTimer = 0;
+  /* A tap anywhere on it puts it away (its button does its thing first). On a phone it also
+     follows a finger down or sideways, 1:1, and a flick or a long enough pull sends it off that
+     way; anything less springs it back. */
+  let toastTimer = 0, toastAnim = null;
+  function toastAt(t, x, y) {
+    t.style.transform = x || y ? 'translate(calc(-50% + ' + x + 'px), ' + y + 'px)' : '';
+    const k = Math.max(Math.abs(x) / (t.offsetWidth || 1), y / 90);
+    t.style.opacity = k > 0 ? String(Math.max(0, 1 - k)) : '';
+  }
   function hideToast() {
     clearTimeout(toastTimer);
     const t = document.getElementById('toast');
     if (!t) return;
-    const done = () => { t.classList.remove('is-leaving'); t.hidden = true; rehostToast(); };
+    const done = () => { t.classList.remove('is-leaving'); t.hidden = true; toastAt(t, 0, 0); rehostToast(); };
     if (t.hidden || reducedMotion()) { done(); return; }
     t.classList.add('is-leaving');
     toastTimer = setTimeout(done, 160);
   }
+  function wireToast(t) {
+    if (t._wired) return;
+    t._wired = true;
+    let drag = null, swiped = false;
+    t.addEventListener('click', (e) => {
+      if (swiped) { swiped = false; return; }
+      if (!e.target.closest('.toast-btn')) hideToast();
+    });
+    t.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0 || t.classList.contains('is-leaving')) return;
+      if (toastAnim) { toastAnim.stop(); toastAnim = null; }
+      swiped = false;
+      drag = { id: e.pointerId, x0: e.clientX, y0: e.clientY, axis: null, x: 0, y: 0, hist: [{ x: e.clientX, y: e.clientY, t: e.timeStamp }] };
+      // On the window, so a fast finger that leaves the toast is still followed.
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', end);
+      window.addEventListener('pointercancel', end);
+    });
+    const move = (e) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      const dx = e.clientX - drag.x0, dy = e.clientY - drag.y0;
+      if (!drag.axis) {
+        if (Math.hypot(dx, dy) < 6) return;
+        drag.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+        clearTimeout(toastTimer);
+        try { t.setPointerCapture(e.pointerId); } catch (_) { /* gone */ }
+      }
+      // Sideways either way; down freely, up only a little (there is nowhere to go).
+      drag.x = drag.axis === 'x' ? dx : 0;
+      drag.y = drag.axis === 'y' ? (dy > 0 ? dy : rubber(dy, 60)) : 0;
+      toastAt(t, drag.x, drag.y);
+      drag.hist.push({ x: e.clientX, y: e.clientY, t: e.timeStamp });
+      if (drag.hist.length > 5) drag.hist.shift();
+    };
+    const end = (e) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      if (e.type === 'pointerup') move(e);
+      const d = drag;
+      drag = null;
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', end);
+      window.removeEventListener('pointercancel', end);
+      if (!d.axis) return;
+      swiped = true;
+      setTimeout(() => { swiped = false; }, 0);
+      const a = d.hist[0], b = d.hist[d.hist.length - 1];
+      const dt = b.t > a.t ? (b.t - a.t) / 1000 : 0;
+      const vx = dt ? (b.x - a.x) / dt : 0, vy = dt ? (b.y - a.y) / dt : 0;
+      const off = d.axis === 'x' ? d.x : d.y, v = d.axis === 'x' ? vx : vy;
+      const away = d.axis === 'x' ? (Math.abs(off) > 60 || (Math.abs(v) > 400 && Math.sign(v) === Math.sign(off))) : (off > 36 || v > 400);
+      if (away && e.type !== 'pointercancel') {
+        const dir = d.axis === 'x' ? Math.sign(off || v) : 1;
+        const far = d.axis === 'x' ? dir * (t.offsetWidth + 40) : 120;
+        clearTimeout(toastTimer);
+        const fin = () => { toastAnim = null; t.hidden = true; t.classList.remove('is-leaving'); toastAt(t, 0, 0); rehostToast(); };
+        if (reducedMotion()) { fin(); return; }
+        toastAnim = spring({ from: off, to: far, velocity: v, response: 0.28,
+          onUpdate: (p) => (d.axis === 'x' ? toastAt(t, p, 0) : toastAt(t, 0, p)), onDone: fin });
+        return;
+      }
+      toastAnim = spring({ from: off, to: 0, velocity: v, response: 0.3,
+        onUpdate: (p) => (d.axis === 'x' ? toastAt(t, p, 0) : toastAt(t, 0, p)), onDone: () => { toastAnim = null; } });
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(hideToast, 3200);
+    };
+  }
   function toast(msg, action) {
     const t = document.getElementById('toast');
     if (!t) return;
+    wireToast(t);
+    if (toastAnim) { toastAnim.stop(); toastAnim = null; }
+    toastAt(t, 0, 0);
     t.classList.remove('is-leaving');
     t.replaceChildren(el('span', { class: 'toast-msg', text: msg }));
     if (action) {
@@ -226,7 +303,7 @@
     let at = null, anim = null;
     const btns = o.options.map((opt) => {
       const b = el('button', {
-        type: 'button', role: 'radio', class: 'seg-opt', title: opt.title || null,
+        type: 'button', role: 'radio', class: 'seg-opt',
         dataset: { value: opt.value }, 'aria-checked': String(opt.value === current), tabindex: opt.value === current ? '0' : '-1'
       }, opt.label);
       b.addEventListener('click', () => pick(opt.value, true));
@@ -280,7 +357,7 @@
   function toggle(o) {
     const b = el('button', {
       type: 'button', role: 'switch', class: 'switch' + (o.class ? ' ' + o.class : ''),
-      'aria-checked': String(!!o.checked), 'aria-label': o.label || null, id: o.id || null, title: o.title || null
+      'aria-checked': String(!!o.checked), 'aria-label': o.label || null, id: o.id || null
     }, el('span', { class: 'switch-knob', 'aria-hidden': 'true' }));
     b.addEventListener('click', () => {
       const on = b.getAttribute('aria-checked') !== 'true';
@@ -301,6 +378,7 @@
     const m = openMenu;
     openMenu = null;
     m.cleanup();
+    if (m.anchor.removeAttribute && m.anchor.hasAttribute('aria-haspopup')) m.anchor.setAttribute('aria-expanded', 'false');
     if (m.onClose) m.onClose();
     m.node.classList.add('is-leaving');
     setTimeout(() => m.node.remove(), reducedMotion() ? 0 : 100);
@@ -336,6 +414,8 @@
   }
 
   function menu(anchor, items, onPick, extra, onClose, opts) {
+    // Pressed again, the button that opened it puts it away.
+    if (openMenu && openMenu.anchor === anchor) { closeMenu(); return null; }
     closeMenu();
     const host = (anchor.closest && anchor.closest('dialog')) || document.body;
     const node = el('div', { class: 'menu', role: 'menu' });
@@ -351,6 +431,7 @@
     }
     if (extra) node.append(extra);
     host.append(node);
+    if (anchor.setAttribute && anchor.hasAttribute('aria-haspopup')) anchor.setAttribute('aria-expanded', 'true');
     placeNear(node, anchor.getBoundingClientRect(), opts && opts.align);
     const onDown = (e) => { if (!node.contains(e.target) && e.target !== anchor && !(anchor.contains && anchor.contains(e.target))) closeMenu(); };
     const onKey = (e) => {
@@ -441,23 +522,34 @@
      past the top, and a flick down sends it away with the finger's speed. */
   const asSheet = (dlg) => isNarrow() && !dlg.classList.contains('no-sheet');
 
+  // A field inside the dialog has the keyboard, or had it a moment ago. iOS puts its own panels
+  // over the page then (Passwords, autofill, the keyboard's bar); a tap on them can reach the page
+  // as a click outside the dialog, and must not put the dialog away.
+  const FIELD = 'input, textarea, select, [contenteditable="true"]';
+  const typingIn = (dlg) => {
+    const a = document.activeElement;
+    return (a && a !== dlg && dlg.contains(a) && a.matches(FIELD)) || performance.now() - (dlg._fieldBlur || 0) < 800;
+  };
+
   function wireDialog(dlg, onDismiss) {
     if (dlg._wired) return;
     dlg._wired = true;
     dlg._onDismiss = onDismiss || null;
+    dlg.addEventListener('focusout', (e) => { if (e.target.matches && e.target.matches(FIELD)) dlg._fieldBlur = performance.now(); });
     dlg.addEventListener('click', (e) => {
-      if (e.target !== dlg) return;
+      if (e.target !== dlg || typingIn(dlg)) return;
       const r = dlg.getBoundingClientRect();
       if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) dismiss(dlg);
     });
     dlg.addEventListener('cancel', (e) => { e.preventDefault(); if (!openMenu) dismiss(dlg); });
     dlg.addEventListener('close', () => { closeMenu(); rehostToast(); });
-    // Sheets: drag the grabber (or the sheet's head) down to put it away.
+    // Sheets: drag the grabber down to put it away. Only the grabber, so a tap anywhere else in
+    // the sheet (a field, a button, the system's autofill over it) is only ever a tap.
     let drag = null;
     dlg.addEventListener('pointerdown', (e) => {
       if (!asSheet(dlg) || e.button !== 0) return;
-      const handle = e.target.closest && e.target.closest('.grabber, .sheet-drag');
-      if (!handle || (e.target.closest('button, input, textarea, select, a') && !e.target.closest('.grabber'))) return;
+      const handle = e.target.closest && e.target.closest('.grabber');
+      if (!handle) return;
       if (dlg._anim) dlg._anim.stop();
       const y0 = dlg._y || 0;
       drag = { id: e.pointerId, startY: e.clientY, y0, y: y0, moved: false, hist: [{ y: e.clientY, t: e.timeStamp }], h: dlg.offsetHeight };

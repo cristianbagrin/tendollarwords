@@ -30,10 +30,10 @@ html.is-typing .spine:not(:hover):not(:focus-within) :is(.spine-left, .spine-mor
 .spine-title-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 0; }
 .spine-title.is-untitled { color: var(--ink-3); }
 .spine-title .icon { color: var(--ink-3); width: 14px; height: 14px; }
-.spine-title:hover, .spine-spend:hover, .spine-more:hover, .spine-sync:hover, .spine-nb:hover { background: var(--hover); }
+@media (hover: hover) and (pointer: fine) { .spine-title:hover, .spine-spend:hover, .spine-more:hover, .spine-sync:hover, .spine-nb:hover { background: var(--hover); } }
 .spine-title:active, .spine-spend:active, .spine-more:active, .spine-nb:active { transform: scale(.97); background: var(--press); }
 .spine-stage { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 8px; border: 0; border-radius: 13px; background: transparent; color: var(--ink-2); font: 500 12px/1 var(--font-ui); white-space: nowrap; transition: background-color 120ms ease; }
-.spine-stage:hover { background: var(--hover); color: var(--ink); }
+@media (hover: hover) and (pointer: fine) { .spine-stage:hover { background: var(--hover); color: var(--ink); } }
 .stage-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
 .spine-nb {
   display: inline-grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: var(--r-sm);
@@ -157,7 +157,7 @@ html[data-format="substack"] .page { --measure: 70ch; }
   transition: transform 160ms var(--spring);
 }
 .ln-toggle.is-closed::before { transform: rotate(-90deg); }
-.ln-toggle:hover::before { border-top-color: var(--ink); }
+@media (hover: hover) and (pointer: fine) { .ln-toggle:hover::before { border-top-color: var(--ink); } }
 .ln.is-folded { display: none; }
 .ln-quote { padding-left: .9em; box-shadow: inset 2px 0 0 var(--ink-3); color: var(--ink-2); font-style: italic; }
 .ln-hr::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px solid var(--rule-2); }
@@ -233,7 +233,6 @@ html.lens .bracket { opacity: .9; }
   transition: opacity var(--fade-t) ease;
 }
 .cost[hidden] { display: none; }
-.cost[data-tip]::after { max-width: 190px; bottom: calc(100% - 4px); }
 /* How much of the paragraph is extra words, under what it costs. */
 .cost-extra { margin-top: -9px; color: var(--red); font: 600 11px/1.3 var(--font-ui); white-space: nowrap; background: var(--ul-red) repeat-x 0 100% / 52px 4px; padding-bottom: 4px; }
 .cost-extra:empty { display: none; }
@@ -246,7 +245,8 @@ html.is-typing .cost { opacity: .35; }
 
 /* Owner notes: a quiet graphite underline, highlighter when open. */
 .nt { box-shadow: inset 0 -1.5px 0 color-mix(in srgb, var(--ink-3) 70%, transparent); cursor: pointer; }
-.nt:hover, .nt.is-open { background: var(--highlight); }
+.nt.is-open { background: var(--highlight); }
+@media (hover: hover) and (pointer: fine) { .nt:hover { background: var(--highlight); } }
 .nt.is-done { box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--ink-3) 35%, transparent); }
 .note-pin {
   position: absolute; left: calc(100% + 18px); width: 22px; height: 22px; display: grid; place-items: center; padding: 0;
@@ -255,7 +255,8 @@ html.is-typing .cost { opacity: .35; }
 }
 .note-pin svg { width: 14px; height: 14px; }
 .note-pin svg path { fill-opacity: 0; stroke-width: 1.5; }
-.note-pin:hover, .note-pin.is-open { color: var(--ink); background: var(--hover); }
+.note-pin.is-open { color: var(--ink); background: var(--hover); }
+@media (hover: hover) and (pointer: fine) { .note-pin:hover { color: var(--ink); background: var(--hover); } }
 .note-pin.is-ai { color: var(--blue); }
 .note-pin.is-done { opacity: .5; }
 .note-pin-n { position: absolute; right: -3px; top: -3px; min-width: 13px; height: 13px; padding: 0 3px; border-radius: 7px; background: var(--ink-2); color: var(--paper); font: 600 9px/13px var(--font-ui); text-align: center; }
@@ -277,7 +278,7 @@ html.is-typing .note-pin { opacity: .3; }
 
 /* Ghosts and alternatives */
 .gh { opacity: .5; transition: opacity 120ms ease; }
-.gh:hover { opacity: .75; }
+@media (hover: hover) and (pointer: fine) { .gh:hover { opacity: .75; } }
 .alt { text-decoration: underline wavy 1px color-mix(in srgb, var(--blue-mark) 45%, transparent); text-underline-offset: .3em; text-decoration-skip-ink: none; }
 .alt.is-open { text-decoration-color: var(--blue-mark); }
 .alt-pager { position: absolute; display: flex; gap: 2px; transform: translateX(-100%); pointer-events: auto; cursor: pointer; padding: 3px 0 6px; color: var(--ink-3); }
@@ -304,7 +305,7 @@ html.alts-open .editor .alt.is-open, html.alts-open .editor .ln.has-palt.is-open
 .post-box.is-over { box-shadow: 0 0 0 1px color-mix(in srgb, var(--red) 45%, transparent), var(--shadow-sm); }
 .post-foot { position: absolute; left: 0; right: 0; display: flex; align-items: center; gap: 8px; font: 500 12px/1 var(--font-ui); color: var(--ink-3); font-variant-numeric: tabular-nums; }
 .post-num { pointer-events: auto; padding: 4px 7px; margin-left: -7px; border: 0; border-radius: var(--r-xs); background: transparent; color: var(--ink-2); font: inherit; }
-.post-num:hover { background: var(--hover); color: var(--ink); }
+@media (hover: hover) and (pointer: fine) { .post-num:hover { background: var(--hover); color: var(--ink); } }
 .post-add { pointer-events: auto; height: 30px; padding: 0 11px; border: 1px solid var(--rule-2); border-radius: var(--r-sm); background: var(--paper); color: var(--ink); font: 600 12px/1 var(--font-ui); }
 .post-meta { margin-left: auto; white-space: nowrap; }
 .post-foot.is-over .post-meta { color: var(--red); font-weight: 600; }
@@ -324,7 +325,8 @@ html.is-typing .blk-handle, html.is-dragging-block .blk-plus, html:has(dialog[op
   transition: color 120ms ease, background-color 120ms ease;
 }
 .blk-grip { width: 16px; cursor: grab; }
-.blk-btn:hover, .blk-btn:focus-visible { background: var(--hover); color: var(--ink-2); }
+.blk-btn:focus-visible { background: var(--hover); color: var(--ink-2); }
+@media (hover: hover) and (pointer: fine) { .blk-btn:hover { background: var(--hover); color: var(--ink-2); } }
 html.is-dragging-block, html.is-dragging-block * { cursor: grabbing !important; user-select: none; }
 .ln.is-dragged { opacity: .35; }
 .blk-drop { position: fixed; z-index: 27; height: 2px; border-radius: 1px; background: var(--blue-mark); pointer-events: none; }
