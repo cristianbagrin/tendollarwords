@@ -155,3 +155,11 @@ test('the list groups by status, month, tag and project, with filters', () => {
   eq(by('none', { q: 'chap 5' })[0].rows.map((d) => d.title), ['Chapter 5']);
   assert.ok(b && loose);
 });
+
+test("a part's own headings sit under its name in the manuscript", () => {
+  const { Store, P, b, ch } = book();
+  Store.update(ch[0].id, { text: '# Five in the morning\nThe alarm goes off.' });
+  Store.update(ch[1].id, { text: '# Chapter 2\nIt rains.\n## Later\nIt stops.' });
+  const md = P.manuscript(b, [{ d: ch[0], depth: 0 }, { d: ch[1], depth: 0 }], (d) => d.text);
+  eq(md, ['# Book', '## Chapter 1', '### Five in the morning', 'The alarm goes off.', '## Chapter 2', 'It rains.', '### Later', 'It stops.'].join('\n\n') + '\n');
+});

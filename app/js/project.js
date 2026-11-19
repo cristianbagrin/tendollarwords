@@ -78,7 +78,17 @@
       const fromTitle = !!String(d.title || '').trim() || !text.trim();
       // A name that is only the first sentence repeats the text: then the text speaks for itself.
       if (!titled && fromTitle) out.push('#'.repeat(level) + ' ' + name);
-      if (text.trim()) out.push(toParagraphs(text));
+      if (!text.trim()) return;
+      // A part's own headings sit under its name: the one that is its name takes the part's
+      // level, the rest go one level below it (as deep as Markdown here goes, ###).
+      let named = !titled;
+      const body = level === 1 ? text : text.split('\n').map((l) => {
+        const h = /^(#{1,3})\s+(.*)$/.exec(l);
+        if (!h) return l;
+        if (!named) { named = true; return '#'.repeat(level) + ' ' + h[2]; }
+        return '#'.repeat(Math.min(3, level + 1)) + ' ' + h[2];
+      }).join('\n');
+      out.push(toParagraphs(body));
     };
     add(root, 1);
     for (const p of parts) add(p.d || p, Math.min(3, 2 + (p.depth || 0)));

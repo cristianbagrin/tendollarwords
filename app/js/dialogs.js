@@ -441,7 +441,7 @@
     const base = app().fontOf(s) === 'typewriter' ? 18.5 : 20;
     return [
       group(
-        row('Theme', segmented({ label: 'Theme', value: app().themeSetting(s), options: [{ value: 'auto', label: 'System' }, { value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }], onChange: (v) => update({ theme: v }) }), { class: 'has-seg' }),
+        row('Theme', segmented({ label: 'Theme', value: app().themeSetting(s), options: [{ value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }, { value: 'auto', label: 'System' }], onChange: (v) => update({ theme: v }) }), { class: 'has-seg' }),
         row('Font', segmented({ label: 'Font', value: app().fontOf(s), class: 'st-fonts', options: [{ value: 'serif', label: font('Source Serif', 'var(--font-serif)') }, { value: 'typewriter', label: font('Typewriter', 'var(--font-type)') }], onChange: (v) => { update({ pageFont: v }); refreshSettings(); } }), { class: 'has-seg' }),
         row('Text size', stepper({ label: 'Text size', value: Number(s.textSize) || 0, min: -2, max: 4, step: 1, unit: 'px', format: (n) => String(base + n), parse: (t) => Math.round(Number(t) - base), onChange: (n) => update({ textSize: n }) })),
         row('Review marks', segmented({ label: 'Review marks', value: s.marks === 'highlighter' ? 'highlighter' : 'pencil', options: [{ value: 'pencil', label: 'Pencil' }, { value: 'highlighter', label: 'Highlighter' }], onChange: (v) => update({ marks: v }) }),

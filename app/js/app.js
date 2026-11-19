@@ -35,10 +35,11 @@
 
   /* ---------- Settings and theme ---------- */
   const darkScheme = window.matchMedia('(prefers-color-scheme: dark)');
-  // The old skins map onto two themes: Night desk is dark, everything else follows the system.
+  // Light unless chosen otherwise. The old skins: Night desk is dark; "dark at night" follows the system.
   function themeSetting(s) {
     if (s.theme === 'light' || s.theme === 'dark' || s.theme === 'auto') return s.theme;
-    return s.skin === 'night' && !s.autoNight ? 'dark' : 'auto';
+    if (s.skin === 'night' && !s.autoNight) return 'dark';
+    return s.autoNight ? 'auto' : 'light';
   }
   const themeOf = (s) => { const t = themeSetting(s); return t === 'auto' ? (darkScheme.matches ? 'dark' : 'light') : t; };
   const fontOf = (s) => (s.pageFont === 'typewriter' ? 'typewriter' : 'serif');

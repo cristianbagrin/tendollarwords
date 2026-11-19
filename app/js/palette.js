@@ -100,7 +100,7 @@
     }
     if (id === 'theme') {
       const cur = app().themeSetting(app().state.settings);
-      return [['auto', 'System', 'Light by day, graphite at night'], ['light', 'Light', ''], ['dark', 'Dark', '']].map(([v, label, desc]) => ({ group: 'Theme', label, desc, checked: v === cur, keep: true, run: () => { app().updateSettings({ theme: v }); draw(); } }));
+      return [['light', 'Light', ''], ['dark', 'Dark', ''], ['auto', 'System', 'Like this device']].map(([v, label, desc]) => ({ group: 'Theme', label, desc, checked: v === cur, keep: true, run: () => { app().updateSettings({ theme: v }); draw(); } }));
     }
     return [];
   }
