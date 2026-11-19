@@ -16,4 +16,5 @@ require('./account-keys.test.mjs');
 require('./backup.test.js');
 require('./store.test.js');
 require('./items-sync.test.mjs');
+require('./notion-import.test.mjs');
 require('./version.test.js');
