@@ -22,14 +22,14 @@ fixes; and improve everything else, core layout included. No limits.
   text, can be read and copied/exported as one manuscript, and shows the whole cost. Drag to reorder
   or move a draft into a project.
 - **Ideas** are their own collection: catch one from anywhere (a button on the phone's bottom bar,
-  ⌘⇧I, the palette, `/write?idea=…` for iOS Shortcuts, Android share target), list/search/tag them,
+  ⌘⇧I, the palette, `/dashboard?idea=…` for iOS Shortcuts, Android share target), list/search/tag them,
   and turn one into a draft or a part of a project, or drop it into the open draft.
 - **Tidy** fixes low-risk mistakes by itself as you leave a word or sentence (typos with one clear
   fix, doubled words, "i", sentence capitals, spaces, a/an, doubled punctuation), with a brief mark
   and ⌘Z. A wider AI pass (grammar) is a button, never automatic, and shows its changes.
-- **Address:** the website is `tendollarwords.cristianbagrin.com/` and the app is `/write`. The home
-  page sends anyone who has used the app on that browser straight to `/write`, so it still opens
-  like an app. The manifest's start URL is `/write`.
+- **Address (Chris, 2026-11-19):** the website is `tendollarwords.cristianbagrin.com/` and the app is `/dashboard`. The home
+  page sends anyone who has used the app on that browser straight to `/dashboard`, so it still opens
+  like an app. The manifest's start URL is `/dashboard`.
 - **The website's words are editable at `/edit`**, the same way as chinese.cristianbagrin.com
   (Copy store in the Worker, HTMLRewriter, `EDIT_KEY` secret).
 - **Chinese Brain's rules apply:** no hover tooltips or `title=` anywhere; a small "?" popover where
@@ -54,7 +54,7 @@ fixes; and improve everything else, core layout included. No limits.
 - [ ] Read the whole project as one manuscript; copy and export (Markdown) the whole thing.
 
 ### 3. Ideas
-- [ ] Capture: phone bottom-bar button, ⌘⇧I, palette, `/write?idea=`, manifest share target.
+- [ ] Capture: phone bottom-bar button, ⌘⇧I, palette, `/dashboard?idea=`, manifest share target.
 - [ ] Ideas list: search, tags, newest first, swipe/archive, undo.
 - [ ] Turn into a draft, into a part of a project, or insert into the open draft.
 
@@ -77,7 +77,7 @@ fixes; and improve everything else, core layout included. No limits.
 - [ ] Remove every hover tooltip / `title=`; "?" popovers instead.
 
 ### 7. Website
-- [ ] Home, How it works, Privacy, What's new at `/`; app moves to `/write` (old `/` users go straight in).
+- [ ] Home, How it works, Privacy, What's new at `/`; app moves to `/dashboard` (old `/` users go straight in).
 - [ ] `/edit` for the pages' words (Copy store, `EDIT_KEY` secret).
 - [ ] Listed on cristianbagrin.com (Projects, jump row, short link, zh-tw too, screenshot), work.cristianbagrin.com, and the account page.
 
