@@ -103,5 +103,45 @@
     return Object.keys(b || {}).some((n) => !a || !a[n] || b[n].at !== a[n].at || !same(b[n].v, a[n].v));
   }
 
-  return { ITERATIONS, normEmail, deriveKeys, seal, open, merge, differs, same, stable, b64, unb64 };
+  /* ---------- One item (a draft or an idea) ----------
+     Its JSON, gzipped when the browser can (prose shrinks to about a third), sealed with AES-GCM
+     under the vault's key. `aad` (the vault and the item's address) goes in as additional data,
+     so one item can't pass for another. The first byte inside says how: 1 gzip, 0 plain. */
+  const GZ = typeof CompressionStream === 'function' && typeof DecompressionStream === 'function';
+  async function pipe(bytes, stream) {
+    const out = new Response(new Blob([bytes]).stream().pipeThrough(stream));
+    return new Uint8Array(await out.arrayBuffer());
+  }
+
+  async function sealItem(value, key, aad) {
+    const json = utf8.encode(JSON.stringify(value));
+    const body = GZ ? await pipe(json, new CompressionStream('gzip')) : json;
+    const plain = new Uint8Array(body.length + 1);
+    plain[0] = GZ ? 1 : 0;
+    plain.set(body, 1);
+    const iv = webcrypto.getRandomValues(new Uint8Array(12));
+    const ct = await subtle().encrypt({ name: 'AES-GCM', iv, additionalData: utf8.encode(aad) }, await aesKey(key), plain);
+    return { iv: b64(iv), ct: b64(new Uint8Array(ct)) };
+  }
+
+  async function openItem(doc, key, aad) {
+    let plain;
+    try {
+      plain = new Uint8Array(await subtle().decrypt({ name: 'AES-GCM', iv: unb64(doc.iv), additionalData: utf8.encode(aad) }, await aesKey(key), unb64(doc.ct)));
+    } catch (e) {
+      if (e && e.code === 'insecure') throw e;
+      throw Object.assign(new Error("This browser's key doesn't open your account."), { code: 'locked' });
+    }
+    const body = plain.subarray(1);
+    const json = plain[0] === 1 ? await pipe(body, new DecompressionStream('gzip')) : body;
+    return JSON.parse(new TextDecoder().decode(json));
+  }
+
+  // A short hex SHA-256 (an item's address on the server, say).
+  async function hashHex(text, n) {
+    const d = new Uint8Array(await subtle().digest('SHA-256', utf8.encode(text)));
+    return Array.from(d.subarray(0, n || 16), (b) => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  return { ITERATIONS, normEmail, deriveKeys, seal, open, merge, differs, same, stable, b64, unb64, sealItem, openItem, hashHex };
 });

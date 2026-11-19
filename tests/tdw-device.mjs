@@ -12,7 +12,7 @@ import { createHandler, memoryKV } from '../worker/account-api.mjs';
 import { createVaultHandler } from '../worker/vault-api.mjs';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
-const FILES = ['data.js', 'inline.js', 'engine.js', 'store.js', 'vault.js', 'account-keyring.js', 'keyring.js', 'account.js'];
+const FILES = ['data.js', 'inline.js', 'engine.js', 'marks.js', 'notion-map.js', 'store.js', 'vault.js', 'account-keyring.js', 'keyring.js', 'account.js', 'items-sync.js'];
 
 /** The app's files as they are now, or as a git commit had them (an older version still open somewhere). */
 function source(file, rev) {
@@ -67,6 +67,7 @@ export function browser({ shared, sharedApi, app, rev }) {
   const fetchHere = (url, init) => (String(url).startsWith(sharedApi) ? shared(String(url), init) : app.fetch(String(url), init));
   const ctx = {
     console, crypto: globalThis.crypto, TextEncoder, TextDecoder, btoa, atob, URL, Blob, Request, Response, Headers,
+    CompressionStream, DecompressionStream,
     queueMicrotask, structuredClone, localStorage,
     navigator: { onLine: true },
     location: { hostname: 'localhost', origin: 'http://localhost', protocol: 'http:' },
@@ -87,11 +88,23 @@ export function browser({ shared, sharedApi, app, rev }) {
     if (code != null) vm.runInContext(code, ctx, { filename: `${rev ? rev + ':' : ''}app/js/${f}` });
   }
   const signedOut = [];
+  // What items sync told the app: { remoteText: [ids], remoteDelete: [ids], list: n }.
+  const told = { remoteText: [], remoteDelete: [], list: 0 };
+  if (ctx.TDW.ItemsSync) {
+    ctx.TDW.ItemsSync.init({
+      onRemoteText: (d) => told.remoteText.push(d.id), onRemoteDelete: (d) => told.remoteDelete.push(d.id), onList: () => { told.list++; },
+      current: () => null,
+    });
+  }
   ctx.TDW.Account.init({ onSignedOut: (m) => signedOut.push(m) });
   return {
     TDW: ctx.TDW,
     Account: ctx.TDW.Account,
     Store: ctx.TDW.Store,
+    ItemsSync: ctx.TDW.ItemsSync,
+    told,
+    /** Sync drafts and ideas now (timers never fire here). */
+    sync: () => ctx.TDW.ItemsSync.syncNow(),
     storage: items,
     signedOut,
     /** The account as this browser keeps it. */

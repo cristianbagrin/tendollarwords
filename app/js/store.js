@@ -517,6 +517,16 @@
     return d;
   }
 
+  // An item as sync brings it: normalized, saved, and put into the object the app already holds.
+  function adopt(raw) {
+    load();
+    const n = normalize(raw);
+    const cur = drafts.get(n.id);
+    if (cur) { Object.assign(cur, n); saveDraft(cur); return cur; }
+    saveDraft(n);
+    return n;
+  }
+
   /* ---------- Ideas ---------- */
 
   // Ideas, newest first. { archived: true } lists the archived ones instead.
@@ -634,7 +644,7 @@
     listDrafts, getDraft, findByNotionId, saveDraft, deleteDraft, newDraft, displayTitle, firstSentence, countWords,
     // 5.0: items, projects, ideas.
     create, update, move, children, descendants, ancestors, ideas, addIdea, ideaToDraft,
-    remove: deleteDraft, restore, deleted, getAny, allItems, forget, today, dayOf,
+    remove: deleteDraft, restore, deleted, getAny, allItems, forget, adopt, today, dayOf,
     // What items-sync.js last synced, per item, and its place in the server's list of changes.
     getSyncMeta(id) { const m = readJSON(SYNC + id, null); return m && typeof m === 'object' ? m : null; },
     setSyncMeta(id, m) { if (m) set(SYNC + id, JSON.stringify(m)); else remove(SYNC + id); },

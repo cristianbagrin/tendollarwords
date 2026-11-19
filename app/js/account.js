@@ -1,6 +1,9 @@
-/* Your account. Sign in once in each browser, and what you set up follows you: the Notion secret
-   and database, the Gemini key and model, your settings and dictionary, and each Notion draft's
-   format, budget, message and backspace switch (Notion doesn't keep those).
+/* Your account. Sign in once in each browser, and what you set up follows you: the Gemini key and
+   model, your settings and dictionary, and the Notion secret and database (for Import from
+   Notion). Drafts and ideas sync on their own, one encrypted record each (items-sync.js), with
+   the same keys. Before 5.0 this document also kept each Notion draft's format, budget, message
+   and backspace switch ('draft.<page id>' fields): they're still read (draftMeta, for the import)
+   but no longer written or applied.
    You sign in with your cristianbagrin.com account, the one all of Chris's apps share. What this
    app syncs is one document of fields (see vault.js), encrypted here with a key made from the
    account's data key (keyring.js), and kept on this app's server at an address made from that key
@@ -73,13 +76,7 @@
 
   /* ---------- This browser's values as fields ---------- */
 
-  // Alternatives go as [kind, start, end, active, [[text, by]…]]; ghosts travel through Notion (gray text).
-  const altsOf = (d) => (d.ann && d.ann.alts.length ? d.ann.alts.map((a) => [a.kind, a.start, a.end, a.active, a.options.map((o) => [o.text, o.by])]) : null);
-  // Notes go with the words they're on (q), so another device can find them; highlights travel through Notion (colors).
-  const notesOf = (d) => (d.ann && d.ann.notes && d.ann.notes.length ? d.ann.notes.map((n) => ({
-    s: n.start, e: n.end, q: d.text.slice(n.start, n.end), b: n.body, d: n.done ? 1 : 0, ai: n.ai ? 1 : 0, c: n.color || '', at: n.at,
-    t: n.thread.map((m) => [m.by, m.text, m.at, m.options || null])
-  })) : null);
+  // How drafts from before 5.0 kept their notes ({ s, e, q, b, d, ai, c, at, t }) and alternatives ([kind, start, end, active, [[text, by]…]]).
   function notesFrom(v) {
     if (!Array.isArray(v)) return [];
     return v.filter((x) => x && typeof x === 'object').map((x) => ({
@@ -87,7 +84,6 @@
       thread: (Array.isArray(x.t) ? x.t : []).filter(Array.isArray).map((m) => ({ by: m[0], text: m[1], at: m[2], options: m[3] || undefined }))
     }));
   }
-  const metaOf = (d) => ({ f: d.format, b: d.budget, i: d.intent || '', nb: typeof d.nb === 'boolean' ? d.nb : null, al: altsOf(d), no: notesOf(d), ch: d.challenge || null });
   function altsFrom(v) {
     if (!Array.isArray(v)) return [];
     return v.filter((x) => Array.isArray(x) && Array.isArray(x[4])).map((x) => ({
@@ -116,7 +112,6 @@
     const fields = {};
     const { out } = localFields();
     for (const n of Object.keys(out)) if (out[n] != null) fields[n] = { v: out[n], at };
-    for (const d of Store.listDrafts()) if (d.notionId && !d.localOnly) fields['draft.' + d.notionId] = { v: metaOf(d), at };
     return fields;
   }
 
@@ -155,18 +150,9 @@
     queueMicrotask(noteLocal);
   }
 
-  // A Notion draft's format, budget, message or backspace switch changed here.
-  function noteDraft(d) {
-    if (!d || !d.notionId || d.localOnly || applying) return;
-    const acc = read();
-    if (!acc) return;
-    const name = 'draft.' + d.notionId;
-    const v = metaOf(d);
-    const cur = acc.fields[name];
-    if (cur && Vault.same(cur.v, v)) return;
-    acc.fields[name] = { v, at: Math.max(Date.now(), cur ? cur.at + 1 : 0) };
-    touched(acc);
-  }
+  // Before 5.0, a Notion draft's format, budget and the rest went into this document. Every draft
+  // now syncs whole (items-sync.js); this stays for callers from before and does nothing.
+  function noteDraft() {}
 
   const validBudget = (b) => Number.isFinite(b) && b >= 10 && b % 10 === 0;
 
@@ -226,32 +212,10 @@
         if (differs('notion.token')) { if (merged['notion.token'].v) Store.setNotionToken(merged['notion.token'].v); else Store.clearNotionToken(); }
       }
 
-      for (const n of Object.keys(merged)) {
-        if (!n.startsWith('draft.') || !merged[n].v) continue;
-        const d = Store.findByNotionId(n.slice(6));
-        const m = draftMetaFrom(merged[n].v);
-        if (!d || d.localOnly || !m) continue;
-        if (TDW.Marks) m.ann = TDW.Marks.normalize(TDW.Marks.withAnn(d.ann, { alts: altsFrom(merged[n].v.al), notes: notesFrom(merged[n].v.no) }), d.text);
-        if (Vault.same(metaOf(d), metaOf(Object.assign({}, d, m)))) continue;
-        Object.assign(d, m);
-        Store.saveDraft(d);
-        changes.drafts.push(d);
-      }
     } finally {
       applying = false;
     }
     if (changes.settings || changes.ai || changes.notion || changes.drafts.length) call('onApplied', changes);
-  }
-
-  function draftMetaFrom(v) {
-    if (!v || typeof v !== 'object') return null;
-    const m = {};
-    if (TDW.Formats && TDW.Formats.get(v.f).key === v.f) m.format = v.f;
-    if (validBudget(v.b)) m.budget = v.b;
-    if (typeof v.i === 'string') m.intent = v.i;
-    m.nb = typeof v.nb === 'boolean' ? v.nb : null;
-    m.challenge = v.ch && typeof v.ch === 'object' && !Array.isArray(v.ch) ? v.ch : null;
-    return m;
   }
 
 
@@ -384,6 +348,7 @@
   function lost(message) {
     clearTimeout(pushTimer);
     clearInterval(pollTimer);
+    if (/removed/.test(message)) Store.clearSyncMeta(); // signing in again sends every draft afresh
     write(null);
     setStatus('idle');
     call('onSignedOut', message);
@@ -892,6 +857,7 @@
     await putRing(acc.token, null, s);
     clearTimeout(pushTimer);
     clearInterval(pollTimer);
+    Store.clearSyncMeta();
     write(null);
     setStatus('idle');
   }

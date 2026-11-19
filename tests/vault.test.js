@@ -48,3 +48,16 @@ test('values compare equal whatever order their keys are in', () => {
   assert.equal(Vault.same({ a: 1 }, { a: 2 }), false);
   assert.equal(Vault.same(null, undefined), true);
 });
+
+test('an item seals and opens only with its key and its own address; text shrinks', async () => {
+  const { key } = await Vault.deriveKeys('a@b.co', 'pw one');
+  const other = (await Vault.deriveKeys('a@b.co', 'pw two')).key;
+  const text = 'Every word costs ten dollars, so choose them. '.repeat(400);
+  const value = { v: 1, id: 'd1', f: { content: { text } } };
+  const doc = await Vault.sealItem(value, key, 'vault/k1');
+  assert.ok(doc.ct.length < text.length / 4, 'gzipped');
+  assert.deepEqual(await Vault.openItem(doc, key, 'vault/k1'), value);
+  await assert.rejects(Vault.openItem(doc, key, 'vault/k2'), { code: 'locked' });
+  await assert.rejects(Vault.openItem(doc, other, 'vault/k1'), { code: 'locked' });
+  assert.match(await Vault.hashHex('x'), /^[0-9a-f]{32}$/);
+});
