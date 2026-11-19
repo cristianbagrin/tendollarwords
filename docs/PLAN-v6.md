@@ -84,3 +84,13 @@ fixes; and improve everything else, core layout included. No limits.
 ### 8. Overall pass
 - [ ] Design review of every surface on a computer and a phone (Emil skills: mobile-native, gestures, review-animations, break-ui).
 - [ ] README, What's new, version 5.0.0, deploy, check the live site.
+
+## Status (2026-11-19, session 1 ended at the usage limit)
+
+Wave 1 started in worktrees beside this repo (`../tdw-storage`, `../tdw-website`, `../tdw-settings`,
+`../tdw-tidy`, branches `v5-*`) and was stopped part-way. Next session: check each worktree's commits and
+uncommitted files, finish or restart each part (briefs: section 1, 7, 4, 5 above + `docs/BRIEF-v5.md`),
+merge into main, then wave 2 (projects, ideas, phone fixes), then the design review and listings.
+Leads found so far: the iOS Passwords bug likely involves the sheet's pointer handling in `wireDialog`
+(`app/js/ui.js`, around line 444); the click-below-the-page bug is in `app/js/editor.js` mousedown handling (around line 1775).
+Deploy needs an `EDIT_KEY` secret on the tendollarwords Worker (same password as the other sites).
