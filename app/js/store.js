@@ -31,6 +31,7 @@
   const STASH = 'tdw.accountStash';  // an old (before 4.0) account's fields, until the next sign-in
   const SYNC = 'tdw.sync.';          // per item: what items-sync.js last synced
   const SYNC_STATE = 'tdw.syncState';
+  const TOMB_MS = 30 * 24 * 3600e3;
   const STATUSES = ['idea', 'drafting', 'editing', 'done'];
   const MARK_MS = 60000;
   // Written only by sync. The open draft keeps its own text while it has unsaved typing,
@@ -278,6 +279,9 @@
       const id = k.slice(PREFIX.length);
       const raw = readJSON(k, null);
       if (!drafts.has(id) && raw && typeof raw === 'object') {
+        // Deleted over 30 days ago and never synced: nobody needs its tombstone (items-sync.js
+        // handles the ones that synced).
+        if (raw.deletedAt && Date.now() - raw.deletedAt > TOMB_MS && get(SYNC + id) == null) { remove(k); continue; }
         const old = migrate(raw);
         const d = normalize(Object.assign({}, raw, { id }));
         drafts.set(id, d);
@@ -325,7 +329,13 @@
 
   function saveDraft(draft) {
     load();
+    // A copy saved over its own tombstone (an undo from before restore()): its parts come back too.
+    const prev = drafts.get(draft.id);
+    const revived = prev && prev !== draft && prev.deletedAt && !draft.deletedAt ? prev.deletedAt : 0;
     drafts.set(draft.id, draft);
+    if (revived) {
+      for (const c of [...drafts.values()]) if (c.deletedAt === revived && c.parentId === draft.id) restore(c.id);
+    }
     if (savedText.get(draft.id) !== draft.text) {
       draft.textAt = Math.max(Date.now(), (draft.textAt || 0) + 1);
       savedText.set(draft.id, draft.text);

@@ -124,6 +124,11 @@ test('delete leaves a tombstone, with the project’s parts; restore brings them
   Store.restore(book.id);
   eq(Store.descendants(book.id).map((d) => d.id), [a.id]);
   eq(Store.deleted(), []);
+  // The undo from before restore(): a copy saved over the tombstone brings the parts back too.
+  const copy = JSON.parse(JSON.stringify(book));
+  Store.deleteDraft(book.id);
+  Store.saveDraft(copy);
+  eq(Store.children(book.id).map((d) => d.id), [a.id]);
   // An empty draft that never synced just goes.
   const empty = Store.create({});
   Store.deleteDraft(empty.id);
@@ -138,4 +143,15 @@ test('a backup leaves out what this browser last synced', () => {
   Store.clearSyncMeta();
   assert.equal(Store.getSyncMeta('a'), null);
   assert.equal(Store.getSyncState(), null);
+});
+
+test('tombstones that never synced go after 30 days', () => {
+  const old = Date.now() - 31 * 24 * 3600e3;
+  const { Store, m } = browser({
+    'tdw.draft.a': JSON.stringify({ id: 'a', text: 'gone', deletedAt: old }),
+    'tdw.draft.b': JSON.stringify({ id: 'b', text: 'synced, waits for sync', deletedAt: old }), 'tdw.sync.b': '{"r":1}',
+    'tdw.draft.c': JSON.stringify({ id: 'c', text: 'recent', deletedAt: Date.now() - 1000 })
+  });
+  eq(Store.deleted().map((d) => d.id).sort(), ['b', 'c']);
+  assert.ok(!m.has('tdw.draft.a'));
 });
