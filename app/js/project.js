@@ -266,12 +266,24 @@
     const words = TDW.Engine.countWords(m.md.replace(/^#{1,3} .*$/gm, ''));
     const copy = async () => {
       const html = TDW.Formats.toHTML(m.md.replace(/\n\n/g, '\n'));
-      try {
-        if (window.ClipboardItem && navigator.clipboard.write) {
-          await navigator.clipboard.write([new ClipboardItem({ 'text/plain': new Blob([m.md], { type: 'text/plain' }), 'text/html': new Blob([html], { type: 'text/html' }) })]);
-        } else await navigator.clipboard.writeText(m.md);
-        toast('Copied “' + name + '”');
-      } catch (_) { toast("Couldn't copy. Select the text and copy it instead."); }
+      const tries = [
+        () => navigator.clipboard.write([new ClipboardItem({ 'text/plain': new Blob([m.md], { type: 'text/plain' }), 'text/html': new Blob([html], { type: 'text/html' }) })]),
+        () => navigator.clipboard.writeText(m.md),
+        () => {
+          const ta = el('textarea', { class: 'copy-buffer', 'aria-hidden': 'true' });
+          ta.value = m.md;
+          ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0;width:1px;height:1px';
+          reader.append(ta);
+          ta.select();
+          const ok = document.execCommand('copy');
+          ta.remove();
+          if (!ok) throw new Error('no copy');
+        }
+      ];
+      for (const t of tries) {
+        try { await t(); toast('Copied “' + name + '”'); return; } catch (_) { /* the next way */ }
+      }
+      toast("Couldn't copy. Select the text and copy it instead.");
     };
     const save = () => {
       const a = el('a', { href: URL.createObjectURL(new Blob([m.md], { type: 'text/markdown' })), download: fileName(name) });
@@ -285,12 +297,13 @@
     reader.replaceChildren(
       el('header', { class: 'reader-bar' },
         el('button', { type: 'button', class: 'btn-icon reader-close', 'aria-label': 'Close', onclick: () => TDW.UI.dismiss(reader) }, icon('close')),
-        el('span', { class: 'reader-meta', text: (m.parts.length + 1) + ' parts · ' + money(words * 10) }),
+        el('span', { class: 'reader-meta', text: name + ' · ' + money(words * 10) }),
         el('button', { type: 'button', class: 'reader-act', onclick: copy }, icon('copy'), el('span', { text: 'Copy' })),
         el('button', { type: 'button', class: 'reader-act', onclick: save }, icon('download'), el('span', { text: 'Markdown' }))),
       el('div', { class: 'reader-scroll' }, body));
     TDW.UI.present(reader, { onDismiss: () => TDW.Editor.focus() });
     reader.querySelector('.reader-scroll').scrollTop = 0;
+    reader._md = m.md;
     reader.querySelector('.reader-close').focus({ preventScroll: true });
   }
 

@@ -115,7 +115,7 @@
       chosen.add(v);
       save();
       closeMenu();
-      tagMenu(anchor, item, after);
+      if (anchor.isConnected) tagMenu(anchor, item, after);
     });
     const items = [{ type: 'head', label: 'Tags' }].concat(allTags().map((t) => ({ label: t, value: t, checked: item.tags.some((x) => x.toLowerCase() === t.toLowerCase()) })));
     menu(anchor, items, (it, btn) => {
@@ -507,9 +507,10 @@
     const date = el('input', { type: 'date', class: 'props-date', 'aria-label': 'Date', value: d.date, required: true });
     date.addEventListener('change', () => { if (date.value) setFields(d, { date: date.value }); else date.value = d.date; });
     const tagsEl = el('div', { class: 'props-tags' });
+    const add = el('button', { type: 'button', class: 'chip t-tag is-add', 'aria-label': 'Add or remove tags', 'aria-haspopup': 'menu' });
+    add.addEventListener('click', () => tagMenu(add, d, drawTags));
     const drawTags = () => {
-      const add = el('button', { type: 'button', class: 'chip t-tag is-add', 'aria-label': 'Add or remove tags' }, icon('plus'), d.tags.length ? null : el('span', { class: 'chip-text', text: 'Add' }));
-      add.addEventListener('click', () => tagMenu(add, d, drawTags));
+      add.replaceChildren(...[icon('plus'), d.tags.length ? null : el('span', { class: 'chip-text', text: 'Add' })].filter(Boolean));
       tagsEl.replaceChildren(...d.tags.map((t) => el('button', { type: 'button', class: 'chip t-tag', 'aria-label': 'Remove the tag ' + t, onclick: () => { setFields(d, { tags: d.tags.filter((x) => x !== t) }); drawTags(); } }, el('span', { class: 'chip-text', text: t }), icon('close'))), add);
     };
     drawTags();

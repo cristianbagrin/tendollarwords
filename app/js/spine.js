@@ -45,14 +45,14 @@
     const t = $('spine-title').querySelector('.spine-title-text');
     t.textContent = empty ? 'Untitled' : title;
     $('spine-title').classList.toggle('is-untitled', empty);
-    $('spine-title').setAttribute('aria-label', (empty ? 'Untitled' : title) + '. Properties');
+    $('spine-title').setAttribute('aria-label', 'Properties of “' + (empty ? 'Untitled' : title) + '”');
     document.title = (empty ? 'Untitled' : title) + ' - Ten Dollar Words';
     // A part of a project: the projects holding it, each a way back (Book › Chapter 3).
     const crumbs = $('spine-crumbs');
     if (crumbs) {
       const up = Store.ancestors(d.id).reverse();
       crumbs.hidden = !up.length;
-      crumbs.replaceChildren(...up.map((a) => el('button', { type: 'button', class: 'crumb', onclick: () => app().openDraft(a.id) },
+      crumbs.replaceChildren(...up.map((a) => el('button', { type: 'button', class: 'crumb', 'aria-label': 'Open “' + (TDW.Project ? TDW.Project.nameOf(a) : Store.displayTitle(a)) + '”', onclick: () => app().openDraft(a.id) },
         el('span', { class: 'crumb-text', text: TDW.Project ? TDW.Project.nameOf(a) : Store.displayTitle(a) }))));
     }
     nbBtn.hidden = !app().backspaceOff(d);

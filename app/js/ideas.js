@@ -123,7 +123,11 @@
     if (!d) return;
     if (TDW.Drafts && TDW.Drafts.isOpen() && !TDW.Drafts.isPinned()) TDW.Drafts.close({ quiet: true });
     TDW.Editor.focus();
-    app().insertAtCaret(idea.text);
+    // Its own paragraph, wherever the caret is.
+    const all = TDW.Editor.getText();
+    const at = TDW.Editor.getSelection().start;
+    const before = all.slice(all.lastIndexOf('\n', at - 1) + 1, at), after = all.slice(at).split('\n')[0];
+    app().insertAtCaret((before.trim() ? '\n' : '') + idea.text + (after.trim() ? '\n' : ''));
     Store.update(idea.id, { archived: true });
     if (TDW.Drafts) TDW.Drafts.render();
     toast('Added to this draft', { label: 'Undo', run: () => { TDW.Editor.undo(); Store.update(idea.id, { archived: false }); if (TDW.Drafts) TDW.Drafts.render(); } });
