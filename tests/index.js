@@ -18,4 +18,5 @@ require('./backup.test.js');
 require('./store.test.js');
 require('./items-sync.test.mjs');
 require('./notion-import.test.mjs');
+require('./project.test.js');
 require('./version.test.js');
