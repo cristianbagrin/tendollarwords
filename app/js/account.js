@@ -5,7 +5,9 @@
    app syncs is one document of fields (see vault.js), encrypted here with a key made from the
    account's data key (keyring.js), and kept on this app's server at an address made from that key
    too, so neither server can read it. The data key travels only inside the keyring, wrapped by
-   your password and by your recovery key. This browser keeps its copy and the data key in
+   the account's master key, which your password and the account's one recovery key open in
+   every app (account-keyring.js; keyrings from before it move under it when you sign in: see
+   `settle`). This browser keeps its copy, the data key and the master key in
    localStorage['tdw.account']; a change here is stamped, saved, and sent a moment later. Another
    device's changes arrive when the app comes to the front, and every 5 minutes.
    People with an account from before 4.0 move over the first time they sign in: see `move`. */
@@ -13,12 +15,15 @@
   'use strict';
   const TDW = window.TDW = window.TDW || {};
   const { Store, Vault, Keyring } = TDW;
+  const AK = window.AccountKeyring;
 
   const OLD_API = '/api/account/';       // the old accounts, only for moving
   const VAULT_API = '/api/vault/';
   const SHARED_API = 'https://account.cristianbagrin.com/api/';
   const APP = 'tdw';
   const RING = '@' + APP + '/keyring';
+  const ACCOUNT_RING = '@account/keyring';
+  const DRAFT = 'tdw.recoveryDraft';
   const PUSH_MS = 1500;
   const RETRY_MS = 30000;
   const POLL_MS = 5 * 60e3;
@@ -300,23 +305,45 @@
     return data;
   }
 
-  // The keyring as the account keeps it, or null.
-  async function getRing(token) {
-    let since = 0, ring = null;
-    for (let k = 0; k < 20; k++) {
-      const res = await shared('sync', { app: APP, since, changes: [] }, token);
-      for (const c of res.changes || []) if (c && c.k === RING) ring = c.v;
+  // An item of `app` as the account keeps it: { v, s }, `s` being what a write over it must name.
+  async function readItem(token, app, k) {
+    let since = 0, item = null;
+    for (let i = 0; i < 20; i++) {
+      const res = await shared('sync', { app, since, changes: [] }, token);
+      for (const c of res.changes || []) if (c && c.k === k) item = c;
       if (!res.more) break;
       since = res.seq;
     }
-    return ring && typeof ring === 'object' ? ring : null;
+    return { v: item && item.v && typeof item.v === 'object' ? item.v : null, s: (item && item.s) || 0 };
   }
 
-  // Save a keyring (null removes it) and read back what the account now holds: when two devices
-  // write at once, the later one wins, and both go on with the winner.
-  async function putRing(token, ring) {
-    await shared('sync', { app: APP, since: 0, changes: [{ k: RING, v: ring, t: Date.now() }] }, token);
-    return getRing(token);
+  // Write an item over the one read at `s` (0: none). The account refuses it if anything changed it
+  // since, so two devices or apps never write over each other: false when refused.
+  async function writeItem(token, app, k, v, s) {
+    const res = await shared('sync', { app, since: 0, changes: [{ k, v, t: Date.now(), if: s }] }, token);
+    return !(res.rejected || []).includes(k);
+  }
+
+  // This app's keyring, and the account's (its master key, shared by every app).
+  const getRing = (token) => readItem(token, APP, RING);
+  const putRing = (token, ring, s) => writeItem(token, APP, RING, ring, s);
+  async function getAccountRing(token) {
+    const r = await readItem(token, 'account', ACCOUNT_RING);
+    return { ring: AK.isRing(r.v) ? r.v : null, s: r.s };
+  }
+  const putAccountRing = (token, ring, s) => writeItem(token, 'account', ACCOUNT_RING, ring, s);
+
+  // A recovery key just made, kept here before the keyring holding it is written: if signing in
+  // stops right after, the next sign-in still shows it.
+  let draftMem = null;
+  function keepDraft(email, key) {
+    draftMem = key ? { email, key } : null;
+    try { if (key) localStorage.setItem(DRAFT, JSON.stringify(draftMem)); else localStorage.removeItem(DRAFT); } catch (_) { /* memory only */ }
+  }
+  function draftFor(email) {
+    let d = draftMem;
+    try { d = JSON.parse(localStorage.getItem(DRAFT) || 'null') || d; } catch (_) { /* memory only */ }
+    return d && d.email === email ? d.key : null;
   }
 
   const vaultOf = (acc) => ({ id: acc.vaultId, secret: acc.secret });
@@ -408,8 +435,8 @@
   async function checkRing() {
     const acc = read();
     if (!acc || !acc.token || Date.now() - (acc.ringAt || 0) < RING_MS) return true;
-    let ring;
-    try { ring = await getRing(acc.token); } catch (e) {
+    let ring, acct;
+    try { [{ v: ring }, acct] = await Promise.all([getRing(acc.token), getAccountRing(acc.token)]); } catch (e) {
       const now = read();
       if (e.code === 'signed_out' && now && now.vaultId === acc.vaultId) { now.token = null; now.reauth = true; write(now); }
       return true;
@@ -418,6 +445,8 @@
     if (!now || now.vaultId !== acc.vaultId) return false;
     if (!ring) { lost('Your synced data was removed on another device. Sign in again to sync this browser.'); return false; }
     if (ring.kid && ring.kid !== now.kid) { lost("Your account's keys changed on another device. Sign in again in Settings."); return false; }
+    // A recovery key still waiting to be saved, replaced meanwhile (in another app, say): not worth showing.
+    if (now.rk && acct.ring && !(await AK.isCurrentRecovery(acct.ring, now.rk))) { delete now.rk; delete now.rkReplaced; keepDraft(now.email, null); }
     now.ringAt = Date.now();
     write(now);
     return true;
@@ -517,30 +546,10 @@
       p.email = res.email || p.email;
     }
 
-    // 2. The data key.
+    // 2. The keys.
     if (!p.dk) {
-      let ring = await getRing(p.token);
-      // Lost the password, the recovery key and every signed-in device: new keys, and the old
-      // synced data stays locked for good. Browsers still signed in sign in again and bring theirs.
-      if (!ring || p.startFresh) {
-        const made = await Keyring.create(p.accountPassword);
-        ring = await putRing(p.token, made.ring);
-        if (ring && ring.kid === made.ring.kid) { p.dk = made.dk; p.recovery = made.recovery; }
-      }
-      if (!ring) throw err('error', "Couldn't save your account's keys. Try again.");
-      if (!p.dk) {
-        try {
-          p.dk = await Keyring.unlockWithPassword(ring, p.accountPassword);
-        } catch (e) {
-          if (e.code !== 'wrong_password') throw e;
-          if (p.held && (await Keyring.matches(ring, p.held))) p.dk = p.held;
-          else if (p.recoveryKey) p.dk = await Keyring.unlockWithRecovery(ring, p.recoveryKey);
-          else return { need: 'recovery' };
-          // The password changed: wrap the key under the one that just signed in.
-          const next = await putRing(p.token, await Keyring.rewrapPassword(ring, p.dk, p.accountPassword));
-          if (!next || next.kid !== ring.kid) throw err('error', "Your account's keys changed while you signed in. Try again.");
-        }
-      }
+      const r = await settle(p);
+      if (r.need) { p.asked = r.need; return r; }
     }
 
     // 3. This browser, signed in and synced.
@@ -563,7 +572,118 @@
     }
 
     pending = null;
-    return { done: true };
+    return p.covered ? { done: true, covered: true } : { done: true };
+  }
+
+  /* The keys, from the account's two keyrings (see account-keyring.js):
+     1. the master key: opened with the password, or this browser's copy, or a recovery key;
+     2. the data key: under the master key, or, in a keyring from before it, under the password
+        (or this browser's copy, or the old Ten Dollar Words recovery key);
+     3. no account keyring yet: this app makes it (and its recovery key, shown until saved); a
+        password that no longer opened it (reset by email) opens it again from now on;
+     4. this app's keyring under the master key. One from before gets the new wrap next to its old
+        ones first, and loses them only once the new one reads back. The data key never changes.
+     Every keyring write names the version it read; when another device or app wrote first, it all
+     starts over from what is there now. Sets p.dk and p.mk, or returns { need }. */
+  const RETRY = {};
+  const sameBytes = (a, b) => !!a && !!b && Keyring.b64(a) === Keyring.b64(b);
+
+  async function settle(p) {
+    for (let i = 0; i < 4; i++) {
+      const r = await settleOnce(p);
+      if (r !== RETRY) return r;
+    }
+    throw err('error', 'Your account changed on another device just now. Try again.');
+  }
+
+  async function settleOnce(p) {
+    const [app, acct] = await Promise.all([getRing(p.token), getAccountRing(p.token)]);
+    const cur = read();
+    const mine = cur && cur.email === p.email ? cur : null;
+    const pw = p.accountPassword;
+    const keys = p.recoveryKeys || [];
+    let ar = acct.ring;
+
+    // 1. The master key.
+    let mk = null, fixPw = false;
+    if (ar) {
+      mk = await AK.openWithPassword(ar, pw);
+      if (!mk) {
+        const copy = p.heldMk || (mine && mine.mk ? Keyring.unb64(mine.mk) : null);
+        if (copy && (await AK.keyId(copy)) === ar.id) mk = copy;
+        for (const k of keys) if (!mk) mk = await AK.openWithRecovery(ar, k);
+        fixPw = !!mk;
+      }
+    }
+
+    // 2. The data key.
+    let ring = app.v;
+    if (ring && !Keyring.isRing(ring) && !Keyring.isMasterRing(ring) && !p.startFresh) throw err('bad_ring', 'Your account’s keys look damaged.');
+    let dk = null, created = Date.now(), fromRing = false;
+    if (ring) {
+      created = ring.created || created;
+      if (mk) dk = await Keyring.openWithMaster(ring, mk, ar.id);
+      if (!dk && Keyring.isRing(ring)) {
+        try { dk = await Keyring.unlockWithPassword(ring, pw); } catch (e) { if (e.code !== 'wrong_password') throw e; }
+      }
+      const held = p.held || (mine && mine.dk ? Keyring.unb64(mine.dk) : null);
+      if (!dk && held && (await Keyring.matches(ring, held))) dk = held;
+      if (!dk && Keyring.isRing(ring)) for (const k of keys) if (!dk) { try { dk = await Keyring.unlockWithRecovery(ring, k); } catch (_) { /* not this one */ } }
+      fromRing = !!dk;
+      if (!dk && !p.startFresh) {
+        if (ar && !mk) return { need: 'recovery' };
+        // The account's keys opened, but this app's keyring is still under its old recovery key.
+        if (Keyring.isRing(ring)) return { need: ar ? 'old_recovery' : 'recovery' };
+        throw err('locked', 'Your synced data is locked with keys your account no longer has. Sign in on a browser that still syncs it, or start fresh.');
+      }
+    } else if (ar && !mk && !p.startFresh) {
+      return { need: 'recovery' };
+    }
+    if (!dk) {
+      // No keyring, or starting fresh: new keys for this app (the same ones on every try).
+      dk = p.freshDk || (p.freshDk = crypto.getRandomValues(new Uint8Array(32)));
+      created = Date.now();
+    }
+    // The data key opened but not the master key: this browser keeps syncing; Settings asks.
+    if (ar && !mk && !p.startFresh) { p.dk = dk; p.mk = null; return {}; }
+
+    // 3. The account's keyring.
+    let recovery = null;
+    if (!ar || !mk) {
+      // None yet (or starting fresh with nothing that opens it): this app makes it.
+      const made = await AK.create(pw);
+      keepDraft(p.email, made.recovery);
+      if (!(await putAccountRing(p.token, made.ring, acct.s))) { keepDraft(p.email, null); return RETRY; }
+      const back = await getAccountRing(p.token);
+      if (!back.ring || back.ring.id !== made.ring.id) return RETRY;
+      ar = back.ring; mk = made.mk; recovery = made.recovery;
+    } else if (fixPw) {
+      if (!(await putAccountRing(p.token, await AK.rewrapPassword(ar, mk, pw), acct.s))) return RETRY;
+    }
+    if (!recovery) {
+      const draft = draftFor(p.email);
+      if (draft && (await AK.isCurrentRecovery(ar, draft))) recovery = draft;
+      else if (draft) keepDraft(p.email, null);
+    }
+
+    // 4. This app's keyring under the master key.
+    const before = !!ring && Keyring.isRing(ring) && fromRing;
+    if (!(fromRing && Keyring.isMasterRing(ring) && ring.mkid === ar.id)) {
+      let s = app.s;
+      if (before && !Keyring.masterWrap(ring, ar.id)) {
+        if (!(await putRing(p.token, await Keyring.withMasterWrap(ring, dk, mk, ar.id), s))) return RETRY;
+        const back = await getRing(p.token);
+        if (!sameBytes(await Keyring.openWithMaster(back.v, mk, ar.id), dk)) return RETRY;
+        s = back.s;
+      }
+      if (!(await putRing(p.token, await Keyring.masterRing(dk, mk, ar.id, created), s))) return RETRY;
+      const back = await getRing(p.token);
+      if (!Keyring.isMasterRing(back.v) || !sameBytes(await Keyring.openWithMaster(back.v, mk, ar.id), dk)) return RETRY;
+    }
+    p.dk = dk; p.mk = mk; p.recovery = recovery || '';
+    p.covered = before && !recovery;
+    p.replaced = before && !!recovery;
+    return {};
   }
 
   async function startDevice(p) {
@@ -574,7 +694,10 @@
       cur.token = p.token;
       cur.reauth = false;
       cur.ringAt = Date.now();
-      if (p.recovery) cur.rk = p.recovery;
+      if (p.mk) {
+        cur.mk = Keyring.b64(p.mk);
+        if (p.recovery) { cur.rk = p.recovery; cur.rkReplaced = !!p.replaced; } else { delete cur.rk; delete cur.rkReplaced; }
+      } else if (p.recovery) cur.rk = p.recovery;
       write(cur);
       return;
     }
@@ -585,7 +708,8 @@
     Store.setAccountEmail(p.email);
     write({
       v: 2, email: p.email, token: p.token, dk: Keyring.b64(p.dk), kid: d.kid, vaultId: d.vaultId, secret: d.secret, key: d.key,
-      rev: -1, fields: Vault.merge(snapshot(0), kept), seq: 1, dirty: false, at: 0, ringAt: Date.now(), rk: p.recovery || undefined
+      rev: -1, fields: Vault.merge(snapshot(0), kept), seq: 1, dirty: false, at: 0, ringAt: Date.now(), rk: p.recovery || undefined,
+      rkReplaced: p.recovery && p.replaced ? true : undefined, mk: p.mk ? Keyring.b64(p.mk) : undefined
     });
     let error = null;
     await locked(async () => {
@@ -642,14 +766,26 @@
   function answer(a) {
     const p = pending;
     if (!p) throw err('signed_out', 'Start again: sign in.');
-    if (a.recoveryKey != null) p.recoveryKey = String(a.recoveryKey);
+    if (a.recoveryKey != null) {
+      const text = String(a.recoveryKey);
+      if (!Keyring.decodeRecovery(text)) return Promise.reject(err('bad_recovery', 'A recovery key has 26 letters and numbers. Check it and try again.'));
+      p.recoveryKeys = (p.recoveryKeys || []).concat(text);
+    }
+    const asked = p.asked;
     if (a.accountPassword != null) p.accountPassword = String(a.accountPassword);
     if (a.oldPassword != null) p.oldPassword = String(a.oldPassword);
     if (a.skipOld) p.skipOld = true;
     if (a.startFresh) p.startFresh = true;
-    return proceed().catch((e) => {
+    return proceed().then((res) => {
+      // Asked the same again: the key just typed opened nothing.
+      if (a.recoveryKey != null && res && res.need && res.need === asked) {
+        p.recoveryKeys.pop();
+        throw err('wrong_recovery', 'That recovery key doesn’t open your account.');
+      }
+      return res;
+    }).catch((e) => {
       // A wrong answer can be tried again; anything else starts over.
-      if (a.recoveryKey != null && /recovery/.test(e.code)) p.recoveryKey = '';
+      if (a.recoveryKey != null && /recovery/.test(e.code)) { /* try another key */ }
       else if (a.accountPassword != null && e.code === 'wrong') p.accountPassword = '';
       else if (!(a.oldPassword != null && e.code === 'wrong')) pending = null;
       throw e;
@@ -669,7 +805,7 @@
   function reauth(password) {
     const acc = read();
     if (!acc) return signIn(Store.getAccountEmail(), password);
-    pending = { email: acc.email, password: String(password || ''), held: Keyring.unb64(acc.dk) };
+    pending = { email: acc.email, password: String(password || ''), held: Keyring.unb64(acc.dk), heldMk: acc.mk ? Keyring.unb64(acc.mk) : null };
     return proceed().catch((e) => { pending = null; throw e; });
   }
 
@@ -702,41 +838,58 @@
     return acc;
   }
 
-  // The password changes for the whole cristianbagrin.com account; the keyring follows it here.
+  // The password changes for the whole cristianbagrin.com account, and the account's master key
+  // follows it. A browser not yet on the master key moves onto it with the new password.
   async function changePassword(current, next) {
     checkPassword(next);
     const acc = needToken();
+    const before = await getAccountRing(acc.token);
+    let mk = acc.mk ? Keyring.unb64(acc.mk) : null;
+    if (before.ring && !(mk && (await AK.keyId(mk)) === before.ring.id)) mk = await AK.openWithPassword(before.ring, current);
     await shared('password', { old: current, next }, acc.token);
-    const dk = Keyring.unb64(acc.dk);
-    const ring = await getRing(acc.token);
-    if (!ring || ring.kid !== acc.kid) return;
-    await putRing(acc.token, await Keyring.rewrapPassword(ring, dk, next));
+    const p = { email: acc.email, password: next, accountPassword: next, token: acc.token, held: Keyring.unb64(acc.dk), heldMk: mk, oldDone: true };
+    pending = p;
+    try {
+      const res = await proceed();
+      if (res && res.need) console.warn('keys after a password change', res.need); // this browser keeps syncing
+    } finally {
+      if (pending === p) pending = null;
+    }
+    if (read() && read().rk) call('onRecoveryKey');
   }
 
-  // A new recovery key (the old one stops working). It's shown until you say you saved it.
+  // A new recovery key for the account (the old one stops working, in every app). It's shown until
+  // you say you saved it.
   async function newRecoveryKey() {
     const acc = needToken();
-    const ring = await getRing(acc.token);
-    if (!ring || ring.kid !== acc.kid) throw err('error', "Your account's keys changed on another device. Sign in again.");
-    const made = await Keyring.replaceRecovery(ring, Keyring.unb64(acc.dk));
-    const saved = await putRing(acc.token, made.ring);
-    if (!saved || !Vault.same(saved.rk, made.ring.rk)) throw err('error', "Couldn't save the new recovery key. Try again.");
+    if (!acc.mk) throw err('switch', 'Enter your password first.');
+    const mk = Keyring.unb64(acc.mk);
+    const { ring, s } = await getAccountRing(acc.token);
+    if (!ring || ring.id !== (await AK.keyId(mk))) throw err('error', "Your account's keys changed on another device. Sign in again.");
+    const made = await AK.newRecovery(ring, mk);
+    keepDraft(acc.email, made.recovery);
+    if (!(await putAccountRing(acc.token, made.ring, s))) {
+      keepDraft(acc.email, null);
+      throw err('error', 'Your account changed on another device just now. Try again.');
+    }
     const now = read();
-    if (now) { now.rk = made.recovery; write(now); }
+    if (now) { now.rk = made.recovery; delete now.rkReplaced; write(now); }
     return made.recovery;
   }
 
   function savedRecoveryKey() {
     const acc = read();
-    if (acc && acc.rk) { delete acc.rk; write(acc); }
+    keepDraft('', null);
+    if (acc && acc.rk) { delete acc.rk; delete acc.rkReplaced; write(acc); }
   }
 
   // Ten Dollar Words' synced data goes (the vault and the keyring); the account stays, and so does
   // what each browser has.
   async function removeSyncedData() {
     const acc = needToken();
+    const { s } = await getRing(acc.token);
     await post(VAULT_API, 'remove', vaultOf(acc));
-    await putRing(acc.token, null);
+    await putRing(acc.token, null, s);
     clearTimeout(pushTimer);
     clearInterval(pollTimer);
     write(null);
@@ -788,7 +941,9 @@
       const acc = read();
       return {
         signedIn: !!acc, email: acc ? acc.email : '', at: acc ? acc.at : 0, dirty: !!(acc && acc.dirty), status: status.state, message: status.message,
-        reauth: !!(acc && !acc.token), recoveryKey: (acc && acc.rk) || ''
+        reauth: !!(acc && !acc.token), recoveryKey: (acc && acc.rk) || '', recoveryReplaced: !!(acc && acc.rkReplaced),
+        // signed in from before the account's master key: the password, once, switches this browser
+        switchKeys: !!(acc && acc.token && !acc.mk)
       };
     },
     lastEmail: () => Store.getAccountEmail(),

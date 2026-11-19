@@ -6,6 +6,10 @@ Your cristianbagrin.com account (Settings → Account), the one Chris's other ap
 
 It's plain HTML, CSS, and JavaScript with no build step. It lives at https://tendollarwords.cristianbagrin.com, on one Cloudflare Worker: the Worker serves `app/` as it is, and the one piece that runs on a server is the encrypted synced document (`worker/`, with its records in a Cloudflare D1 database). Sign-in happens at account.cristianbagrin.com.
 
+## New in 4.1
+
+- **One recovery key for your whole cristianbagrin.com account.** Ten Dollar Words and Money in Order share it. Your data key now sits under your account's master key, which your password and that one recovery key open (the scheme: `app/js/account-keyring.js`, the same file as the account service's). Signed in from before? Settings → Account asks for your password once to switch; the recovery key Ten Dollar Words gave you before then stops working. Nothing synced is re-encrypted.
+
 ## New in 4.0
 
 - **One account for all of Chris's apps.** Sign in with your cristianbagrin.com account. If you had a Ten Dollar Words account, sign in with the same email and password: it moves over by itself (see Accounts).
@@ -149,8 +153,8 @@ To use a different database, press Disconnect, then Connect with the new link (t
 
 Settings → Account → Sign in, with your cristianbagrin.com account (or Create account for a new one). It's the same account as Chinese Brain, At Peace and Money in Order. Then sign in on any other browser (your phone, a second computer) and it's set up: the Notion secret and database, the Gemini key and model, every setting, your dictionary, and each Notion draft's format, budget, message and backspace switch, which Notion doesn't keep. Change something on one device and the others pick it up when you next bring the app to the front (or within 5 minutes). The drafts themselves travel through Notion, as before.
 
-- **End-to-end encrypted.** What syncs is encrypted in your browser (AES-256-GCM) with a random data key made on your first device. The servers store only encrypted data: this app's server keeps the encrypted document, and the account service keeps the data key wrapped twice, once with a key made from your password (PBKDF2, 600,000 rounds, a random salt) and once with your recovery key. The account service sees your password when you sign in, to check it, but never stores it, and it has no key to your data. The password never goes to this app's server.
-- **Your recovery key** (26 letters and numbers) is shown once, when your account's keys are made: copy it or download it, and keep it somewhere safe, like a password manager. Settings → Account → Recovery key makes a new one (the old one stops working).
+- **End-to-end encrypted.** What syncs is encrypted in your browser (AES-256-GCM) with a random data key made on your first device. The servers store only encrypted data: this app's server keeps the encrypted document, and the account service keeps the data key wrapped under your account's master key, which is itself wrapped twice: once with a key made from your password (PBKDF2, 600,000 rounds, a random salt) and once with your account's recovery key. The account service sees your password when you sign in, to check it, but never stores it, and it has no key to your data. The password never goes to this app's server.
+- **Your recovery key** (26 letters and numbers) is one for your whole cristianbagrin.com account, in every app. It's shown once, when your account's keys are made (by whichever app needs them first): copy it or download it, and keep it somewhere safe, like a password manager. Settings → Account → Recovery key, or your account page, makes a new one (the old one stops working everywhere).
 - **Forgot your password?** Settings → Account → Forgot your password? emails a link to set a new one. Then sign in with it: a browser that's still signed in carries on and asks for the new password once, quietly; a new browser asks for your recovery key once. Lose the password, the recovery key and every signed-in device, and the synced data can't be opened by anyone. What's on each device stays, and "Start fresh" makes new keys.
 - **Changing your password** (Settings → Account, or on account.cristianbagrin.com) changes it for the whole account and signs your other devices out of it. They keep syncing and ask for the new password once.
 - **Signing out** takes your keys and Notion connection out of that browser. Drafts stay. **Remove synced data** deletes what Ten Dollar Words keeps in the account and stops every browser syncing it; each browser keeps what it has. To delete the account itself, use account.cristianbagrin.com.
@@ -252,7 +256,8 @@ The review underlines unknown words in red pencil. Open its note for fixes, or "
     js/notion.js           Notion API client
     js/sync.js             two-way sync with Notion
     js/vault.js            encrypting the synced document, and merging two copies (and the old accounts' keys)
-    js/keyring.js          the data key, wrapped by your password and your recovery key; what it opens
+    js/account-keyring.js  the account's master key and its one recovery key (shared with every app)
+    js/keyring.js          the data key, wrapped by the account's master key; what it opens
     js/account.js          signing in, the move from old accounts, and keeping keys, settings and draft formats in step
     js/editor.js           the editor: one line per paragraph, its own undo, X post windows, the fold
     js/ui.js               shared helpers: phone or computer, Mac or not, elements, toasts, money, icons, toggles, menus

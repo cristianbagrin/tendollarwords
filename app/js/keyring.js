@@ -1,9 +1,12 @@
 /* The keys to your synced data. One random data key per account opens everything the app syncs.
-   It travels only inside the keyring, wrapped twice: once with a key made from your password
-   (PBKDF2, a random salt), once with your recovery key (128 random bits). The keyring lives in
-   your cristianbagrin.com account as the item @tdw/keyring; the servers see only ciphertext.
-   From the data key come the vault's address, the secret that lets this app's server accept
-   writes to it, and the key the vault is encrypted with.
+   It travels only inside the keyring, the item @tdw/keyring in your cristianbagrin.com account,
+   wrapped under the account's master key (account-keyring.js), which your password and the
+   account's one recovery key open, in every app:
+     { v: 2, kid, mkid, mk: AES-GCM over the data key under HKDF(master key, "tdw/dk-wrap"), created }
+   Keyrings from before (v 1) wrapped it twice, under your password (PBKDF2, a random salt) and
+   under a recovery key of this app's own; they still open, and signing in moves them to v 2.
+   The servers see only ciphertext. From the data key come the vault's address, the secret that
+   lets this app's server accept writes to it, and the key the vault is encrypted with.
    UMD: TDW.Keyring in the browser, module.exports in Node (for the tests). */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory(globalThis.crypto);
@@ -160,6 +163,31 @@
     return { recovery: encodeRecovery(rk), ring: Object.assign({}, ring, { rk: await wrap(await rkKey(rk), dk, 'rk') }) };
   }
 
+  /* ---------- Under the account's master key ---------- */
+
+  const AK = () => (typeof module === 'object' && module.exports ? require('./account-keyring.js') : (typeof self !== 'undefined' ? self : globalThis).AccountKeyring);
+
+  const isMasterRing = (r) => !!(r && typeof r === 'object' && r.v === 2 && typeof r.mkid === 'string' && r.mk && typeof r.mk.ct === 'string');
+
+  // The wrap under the master key `mkid`, if this keyring has one (v 2, or v 1 halfway through its move).
+  const masterWrap = (r, mkid) => (r && r.mkid === mkid && r.mk && typeof r.mk.ct === 'string' ? r.mk : null);
+
+  async function masterRing(dk, mk, mkid, created) {
+    const d = await derive(dk);
+    return { v: 2, kid: d.kid, mkid, mk: await AK().wrapAppKey(mk, APP, dk), created: created || Date.now() };
+  }
+
+  // The same keyring with the master key's wrap added, the old wraps kept (the first half of a move).
+  async function withMasterWrap(ring, dk, mk, mkid) {
+    return Object.assign({}, ring, { mkid, mk: await AK().wrapAppKey(mk, APP, dk) });
+  }
+
+  // The data key, or null when this master key doesn't open the keyring.
+  async function openWithMaster(ring, mk, mkid) {
+    const box = masterWrap(ring, mkid);
+    return box ? AK().unwrapAppKey(mk, APP, box) : null;
+  }
+
   // Whether this data key is the one the keyring holds (by its id; older keyrings without one: unknown).
   async function matches(ring, dk) {
     if (!ring || !ring.kid) return null;
@@ -168,6 +196,7 @@
 
   return {
     ITERATIONS, isRing, create, unlockWithPassword, unlockWithRecovery, rewrapPassword, replaceRecovery, derive, matches,
+    isMasterRing, masterWrap, masterRing, withMasterWrap, openWithMaster,
     encodeRecovery, decodeRecovery, b64, unb64
   };
 });

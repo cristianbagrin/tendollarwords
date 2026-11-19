@@ -243,7 +243,7 @@
       if (res && res.need) { step = res.need; lostOpen = false; render(); const f = sec.querySelector('input:not([hidden])'); if (f) f.focus(); return; }
       step = null; mode = 'in';
       render(); refreshSettings(); TDW.App.syncChanged();
-      toast(up ? 'Account ready' : 'Signed in');
+      toast(up ? 'Account ready' : res && res.covered ? 'Signed in. Your account’s recovery key covers Ten Dollar Words now' : 'Signed in');
       if (Account.state().recoveryKey) showRecoveryKey();
     }
 
@@ -300,11 +300,13 @@
         f.noValidate = true;
         return [el('p', { class: 'set-note', style: 'margin-top:0', text: note }), f];
       };
-      if (step === 'recovery') {
+      if (step === 'recovery' || step === 'old_recovery') {
+        const old = step === 'old_recovery';
         const key = input('text', 'acct-recovery', 'off', { class: 'recovery-input', placeholder: 'XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XX', autocorrect: 'off' });
         const go = el('button', { type: 'submit', class: 'btn', text: 'Unlock' });
         const lost = el('button', { type: 'button', class: 'link', text: 'Lost it?', 'aria-expanded': String(lostOpen), onclick: () => { lostOpen = !lostOpen; render(); } });
-        const nodes = form('Your password changed. Enter your recovery key to unlock your synced data.', field('Recovery key', key), go, el('span', { class: 'set-actions' }, back, lost));
+        const nodes = form(old ? 'Your synced data still uses the recovery key Ten Dollar Words gave you before. Enter it once.' : 'Your password changed. Enter your cristianbagrin.com recovery key to unlock your synced data.',
+          field('Recovery key', key), go, el('span', { class: 'set-actions' }, back, lost));
         nodes[1].addEventListener('submit', (e) => {
           e.preventDefault();
           if (!key.value.trim()) { key.focus(); return; }
@@ -315,7 +317,8 @@
           fresh.addEventListener('click', () => run(fresh, 'Making new keys…', async () => after(await Account.answer({ startFresh: true }))));
           nodes.push(el('div', { class: 'acct-sub', style: 'margin-top:14px' },
             el('p', { style: 'margin:0 0 10px', text: 'Without the recovery key or a signed-in device, synced data can’t be opened. Your data on this device stays.' }),
-            el('p', { class: 'hint', style: 'margin:0 0 10px', text: 'Starting fresh makes new keys and syncs this device from here on. What was synced before stays locked.' }), fresh));
+            el('p', { class: 'hint', style: 'margin:0 0 10px', text: old ? 'Starting fresh makes new keys for Ten Dollar Words and syncs this device from here on. What it synced before stays locked.'
+              : 'Starting fresh makes new keys for your whole account. What was synced before stays locked, in every app, except on devices still signed in.' }), fresh));
         }
         return nodes;
       }
@@ -352,6 +355,21 @@
       const nodes = [
         ...group(null, row('Signed in as ' + st.email, out, 'Notion, Gemini, settings, dictionary and draft formats sync to your account, encrypted on this device first. ' + syncLine()))
       ];
+      if (st.switchKeys) {
+        const pw = input('password', 'acct-switch', 'current-password');
+        const go = el('button', { type: 'submit', class: 'btn btn-sm', text: 'Switch' });
+        const form = el('form', { class: 'acct-form acct-sub', style: 'margin-bottom:14px' },
+          el('input', { type: 'email', name: 'acct-user', autocomplete: 'username', value: st.email, hidden: true, tabindex: '-1', 'aria-hidden': 'true' }),
+          el('p', { style: 'margin:0', text: 'Ten Dollar Words now uses your cristianbagrin.com account’s recovery key. Enter your password once to switch.' }),
+          field('Password', pw), el('div', { class: 'set-actions' }, go));
+        form.noValidate = true;
+        form.addEventListener('submit', (e) => {
+          e.preventDefault();
+          if (!pw.value) { pw.focus(); return; }
+          run(go, 'Switching…', async () => after(await Account.reauth(pw.value)));
+        });
+        nodes.push(form);
+      }
       if (st.reauth) {
         const pw = input('password', 'acct-reauth', 'current-password');
         const go = el('button', { type: 'submit', class: 'btn btn-sm', text: 'Sign in' });
@@ -368,7 +386,7 @@
         nodes.push(form);
       }
       nodes.push(el('div', { class: 'set-actions' },
-        el('button', { type: 'button', class: 'btn-quiet btn-sm', text: 'Recovery key', 'aria-expanded': String(open === 'recovery'), disabled: st.reauth, onclick: toggleOpen('recovery') }),
+        el('button', { type: 'button', class: 'btn-quiet btn-sm', text: 'Recovery key', 'aria-expanded': String(open === 'recovery'), disabled: st.reauth || st.switchKeys, onclick: toggleOpen('recovery') }),
         el('button', { type: 'button', class: 'btn-quiet btn-sm', text: 'Change password', 'aria-expanded': String(open === 'password'), disabled: st.reauth, onclick: toggleOpen('password') }),
         el('a', { class: 'btn-quiet btn-sm', href: site(), target: '_blank', rel: 'noopener' }, 'Your account', icon('external')),
         el('button', { type: 'button', class: 'btn-quiet btn-sm danger', text: 'Remove synced data', 'aria-expanded': String(open === 'remove'), disabled: st.reauth, onclick: toggleOpen('remove') })),
@@ -379,7 +397,7 @@
         const go = el('button', { type: 'button', class: 'btn btn-sm', text: 'Make a new one' });
         go.addEventListener('click', () => run(go, 'Making a new key…', async () => { await Account.newRecoveryKey(); open = null; render(); showRecoveryKey(); }));
         nodes.push(el('div', { class: 'acct-sub' },
-          el('p', { style: 'margin:0 0 10px', text: 'Your recovery key unlocks your synced data if you forget your password. Lost it, or not sure where it is? Make a new one: the old one stops working.' }),
+          el('p', { style: 'margin:0 0 10px', text: 'Your cristianbagrin.com recovery key unlocks your synced data, in every app, if you forget your password. Lost it? Make a new one: the old one stops working everywhere.' }),
           el('div', { class: 'set-actions' }, go, cancel)));
       } else if (open === 'password') {
         const cur = input('password', 'acct-current', 'current-password');
@@ -403,8 +421,8 @@
     let shown = null;
     function render() {
       shown = Account.state().signedIn;
-      if (shown) step = null;
-      sec.replaceChildren(...(shown ? signedInView() : signedOutView()).filter(Boolean), status);
+      // Signed in, a step can still be open: switching to the account's keys may ask for the recovery key.
+      sec.replaceChildren(...(shown ? (step ? stepView() : signedInView()) : signedOutView()).filter(Boolean), status);
     }
     render();
     accountRefresh = () => {
@@ -429,10 +447,10 @@
     });
     const download = el('button', { type: 'button', class: 'btn-outline' }, icon('download'), el('span', { text: 'Download' }));
     download.addEventListener('click', () => {
-      const text = ['Ten Dollar Words recovery key', '', key, '', 'Account: ' + st.email, 'Made: ' + new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), '',
-        'If you forget your password, this key is the only way back into your synced data. Keep it somewhere safe, like a password manager.',
-        'https://tendollarwords.cristianbagrin.com', ''].join('\n');
-      const a = el('a', { href: URL.createObjectURL(new Blob([text], { type: 'text/plain' })), download: 'ten-dollar-words-recovery-key.txt' });
+      const text = ['cristianbagrin.com recovery key', '', key, '', 'Account: ' + st.email, 'Made: ' + new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), '',
+        'One key for your cristianbagrin.com account, in every app. If you forget your password, it’s the only way back into your synced data. Keep it somewhere safe, like a password manager.',
+        'https://account.cristianbagrin.com', ''].join('\n');
+      const a = el('a', { href: URL.createObjectURL(new Blob([text], { type: 'text/plain' })), download: 'cristianbagrin.com recovery key.txt' });
       document.body.append(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(a.href), 1000);
     });
@@ -443,7 +461,8 @@
       el('div', { class: 'recovery-card' },
         el('div', { class: 'recovery-seal', 'aria-hidden': 'true' }, keyGlyph()),
         el('h2', { id: 'recovery-title', text: 'Save your recovery key' }),
-        el('p', { class: 'recovery-lede', text: 'If you forget your password, this key is the only way back into your synced data. Keep it somewhere safe, like a password manager.' }),
+        el('p', { class: 'recovery-lede', text: 'One key for your cristianbagrin.com account, in every app. If you forget your password, it’s the only way back into your synced data. Keep it somewhere safe, like a password manager.' }),
+        st.recoveryReplaced ? el('p', { class: 'recovery-lede', text: 'It replaces the recovery keys Ten Dollar Words and Money in Order gave you before.' }) : null,
         el('div', { class: 'recovery-slip' }, el('code', { class: 'recovery-key', 'aria-label': 'Recovery key ' + key.split('').join(' ') },
           ...key.split('-').flatMap((g, i) => (i === 4 ? [el('i', { class: 'recovery-break' }), el('span', { text: g })] : [el('span', { text: g })])))),
         el('div', { class: 'recovery-actions' }, copy, download),

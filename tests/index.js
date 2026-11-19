@@ -12,5 +12,6 @@ require('./account-api.test.mjs');
 require('./vault-api.test.mjs');
 require('./vault.test.js');
 require('./keyring.test.js');
+require('./account-keys.test.mjs');
 require('./backup.test.js');
 require('./version.test.js');
