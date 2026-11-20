@@ -86,12 +86,12 @@ fixes; and improve everything else, core layout included. No limits.
 ### 7. Website
 - [x] Home, How it works, Privacy, What's new at `/`; app moves to `/dashboard` (old `/` users go straight in).
 - [x] `/edit` for the pages' words (Copy store, `EDIT_KEY` secret).
-- [ ] Listed on cristianbagrin.com (Projects, jump row, short link, zh-tw too, screenshot), work.cristianbagrin.com, and the account page.
+- [x] Listed on cristianbagrin.com (Projects, jump row, short links tdw/tendollarwords/write, zh-tw too, screenshot) and work.cristianbagrin.com. The account page already lists it.
 
 ### 8. Overall pass
 - [x] Design review of every surface on a computer and a phone (Emil skills: mobile-native, gestures, review-animations, break-ui). (v5-review)
 - [x] README, What's new, Privacy, home screenshot, version 5.0.0. (v5-review)
-- [ ] Deploy (needs the `EDIT_KEY` secret), check the live site.
+- [x] Deploy (needs the `EDIT_KEY` secret), check the live site. (2026-11-20, 5.0.0 live)
 
 ## Status (2026-11-19, session 1 ended at the usage limit)
 
